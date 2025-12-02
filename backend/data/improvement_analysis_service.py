@@ -1,7 +1,8 @@
 import pandas as pd
 import os
+import json
 import logging
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class ImprovementAnalysisService:
         self.admission_factors = {}
         self.general_colleges_df = None
         self.load_data()
-        
+
         # TEMPORARY: Hardcode Carnegie Mellon data for testing
         self.elite_colleges_data["Carnegie Mellon"] = {
             "acceptance_rate": 0.135,
@@ -34,13 +35,13 @@ class ImprovementAnalysisService:
             "gpa_unweighted_avg": 3.93,
             "category": "selective"
         }
-        
+
         logger.info(f"ImprovementAnalysisService initialized with {len(self.elite_colleges_data)} colleges")
         if len(self.elite_colleges_data) == 0:
             logger.error("CRITICAL: Elite colleges data is empty! This will cause all analyses to fail.")
         else:
             logger.info(f"Elite colleges data loaded successfully. Sample: {list(self.elite_colleges_data.keys())[:3]}")
-    
+
     def load_data(self):
         """Load all necessary data for improvement analysis"""
         try:
@@ -49,9 +50,8 @@ class ImprovementAnalysisService:
             logger.info(f"Looking for elite colleges data at: {elite_path}")
             logger.info(f"Current working directory: {os.getcwd()}")
             logger.info(f"File exists: {os.path.exists(elite_path)}")
-            
+
             if os.path.exists(elite_path):
-                import json
                 try:
                     with open(elite_path, 'r') as f:
                         self.elite_colleges_data = json.load(f)
@@ -73,7 +73,7 @@ class ImprovementAnalysisService:
                     logger.error(f"Alternative path also not found: {alt_path}")
                     # Initialize empty dict to prevent errors
                     self.elite_colleges_data = {}
-            
+
             # Load broader college dataset as a secondary source for acceptance rates/metadata
             try:
                 import pandas as pd  # local import to avoid issues if pandas missing at import-time
@@ -83,13 +83,13 @@ class ImprovementAnalysisService:
                     os.path.abspath(os.path.join(os.getcwd(), 'backend', 'data', 'raw', 'real_colleges_integrated.csv')),  # From project root
                     os.path.abspath(os.path.join(os.getcwd(), 'data', 'raw', 'real_colleges_integrated.csv')),  # From backend directory
                 ]
-                
+
                 csv_path = None
                 for path in possible_paths:
                     if os.path.exists(path):
                         csv_path = path
                         break
-                
+
                 if csv_path and os.path.exists(csv_path):
                     self.general_colleges_df = pd.read_csv(csv_path)
                     logger.info(f"Loaded general colleges dataset: {self.general_colleges_df.shape} from {csv_path}")
@@ -101,15 +101,14 @@ class ImprovementAnalysisService:
             # Load admission factors
             factors_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'factors', 'admissions_factors.json')
             if os.path.exists(factors_path):
-                import json
                 with open(factors_path, 'r') as f:
                     factors_data = json.load(f)
                     self.admission_factors = {factor['id']: factor for factor in factors_data['factors']}
                 logger.info(f"Loaded admission factors: {len(self.admission_factors)} factors")
-            
+
         except Exception as e:
             logger.error(f"Error loading improvement analysis data: {e}")
-    
+
     def analyze_user_profile(self, user_profile: Dict[str, Any], college_name: str) -> List[ImprovementArea]:
         """
         Analyze user profile against college requirements and return improvement areas
@@ -118,7 +117,7 @@ class ImprovementAnalysisService:
             # Try exact match first
             college_data = self.elite_colleges_data.get(college_name, {})
             logger.info(f"Direct match for '{college_name}': {len(college_data)} fields")
-            
+
             # If not found, try common variations
             if not college_data:
                 # Try without "University" suffix
@@ -126,13 +125,13 @@ class ImprovementAnalysisService:
                     short_name = college_name.replace(" University", "")
                     college_data = self.elite_colleges_data.get(short_name, {})
                     logger.info(f"After removing 'University' ('{short_name}'): {len(college_data)} fields")
-                
+
                 # Try without "College" suffix
                 if not college_data and "College" in college_name:
                     short_name = college_name.replace(" College", "")
                     college_data = self.elite_colleges_data.get(short_name, {})
                     logger.info(f"After removing 'College' ('{short_name}'): {len(college_data)} fields")
-                
+
                 # Try common abbreviations
                 if not college_data:
                     name_variations = {
@@ -148,7 +147,7 @@ class ImprovementAnalysisService:
                             college_data = self.elite_colleges_data.get(short_name, {})
                             logger.info(f"Variation match ('{full_name}' -> '{short_name}'): {len(college_data)} fields")
                             break
-            
+
             if not college_data:
                 # Try the broader dataset before falling back
                 if self.general_colleges_df is not None and not self.general_colleges_df.empty:
@@ -192,105 +191,105 @@ class ImprovementAnalysisService:
                     "gpa_unweighted_avg": 3.85,
                     "category": "selective"
                 }
-            
+
             logger.info(f"Using college data with {len(college_data)} fields for analysis")
-            
+
             improvements = []
-            
+
             # 1. Academic Performance Analysis
             try:
                 improvements.extend(self._analyze_academic_performance(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in academic performance analysis: {e}")
-            
+
             # 2. Standardized Testing Analysis
             try:
                 improvements.extend(self._analyze_standardized_testing(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in standardized testing analysis: {e}")
-            
+
             # 3. Extracurricular Activities Analysis
             try:
                 improvements.extend(self._analyze_extracurriculars(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in extracurricular analysis: {e}")
-            
+
             # 4. Leadership & Awards Analysis
             try:
                 improvements.extend(self._analyze_leadership_awards(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in leadership analysis: {e}")
-            
+
             # 5. Academic Rigor Analysis
             try:
                 improvements.extend(self._analyze_academic_rigor(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in academic rigor analysis: {e}")
-            
+
             # 6. Research & Innovation Analysis
             try:
                 improvements.extend(self._analyze_research_innovation(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in research analysis: {e}")
-            
+
             # 7. Essays & Recommendations Analysis
             try:
                 improvements.extend(self._analyze_essays_recommendations(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in essays analysis: {e}")
-            
+
             # 8. NEW: Major-Specific Analysis
             try:
                 improvements.extend(self._analyze_major_specific(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in major analysis: {e}")
-            
+
             # 9. Geographic & Diversity Analysis (DISABLED per product decision)
             # Skipped: do not factor first-gen/diversity or geographic diversity in improvement recommendations
-            
+
             # 10. NEW: Interview & Demonstrated Interest Analysis
             try:
                 improvements.extend(self._analyze_interview_interest(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in interview analysis: {e}")
-            
+
             # 11. NEW: Portfolio & Creative Analysis
             try:
                 improvements.extend(self._analyze_portfolio_creative(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in portfolio analysis: {e}")
-            
+
             # 12. NEW: Volunteer & Community Service Analysis
             try:
                 improvements.extend(self._analyze_volunteer_service(user_profile, college_data))
             except Exception as e:
                 logger.error(f"Error in volunteer analysis: {e}")
-            
+
             # Log the number of improvements generated
             logger.info(f"Total improvements generated: {len(improvements)}")
-            
+
             # Sort by priority and impact
             improvements.sort(key=lambda x: (x.priority == 'high', x.impact), reverse=True)
-            
+
             # Return improvements (analysis methods should ALWAYS return at least maintenance advice)
             if len(improvements) == 0:
                 logger.error("NO improvements generated - this should never happen!")
                 return self._get_default_improvements()
-            
+
             return improvements[:20]  # Return up to 20 improvements for comprehensive analysis
-            
+
         except Exception as e:
             logger.error(f"Error analyzing user profile: {e}")
             return self._get_default_improvements()
-    
+
     def _analyze_academic_performance(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze GPA and academic performance with enhanced calculations"""
         improvements = []
-        
+
         # Get user GPA with multiple scales - handle string values
         user_gpa_unweighted = profile.get('gpa_unweighted', 0)
         user_gpa_weighted = profile.get('gpa_weighted', 0)
-        
+
         # Convert string values to numbers if needed
         try:
             user_gpa_unweighted = float(user_gpa_unweighted) if user_gpa_unweighted else 0
@@ -298,20 +297,20 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             user_gpa_unweighted = 0
             user_gpa_weighted = 0
-            
+
         college_avg_gpa = college_data.get('gpa_unweighted_avg', 3.9)
         college_weighted_gpa = college_data.get('gpa_avg', 4.1)
-        
+
         # Use the more relevant GPA based on what's available
         user_gpa = user_gpa_unweighted if user_gpa_unweighted > 0 else user_gpa_weighted
         target_gpa = college_avg_gpa if user_gpa_unweighted > 0 else college_weighted_gpa
-        
+
         # Debug logging
         logger.info(f"Academic Performance Debug: user_gpa={user_gpa}, target_gpa={target_gpa}, college_avg_gpa={college_avg_gpa}")
         logger.info(f"Academic Performance Debug: user_gpa_unweighted={user_gpa_unweighted}, user_gpa_weighted={user_gpa_weighted}")
         logger.info(f"Academic Performance Debug: college_weighted_gpa={college_weighted_gpa}")
         logger.info(f"Academic Performance Debug: Comparison user_gpa >= target_gpa: {user_gpa} >= {target_gpa} = {user_gpa >= target_gpa}")
-        
+
         # Check if user already exceeds target significantly
         if user_gpa >= target_gpa:
             # User has met or exceeded target - don't show this improvement
@@ -320,14 +319,14 @@ class ImprovementAnalysisService:
             # User needs significant improvement
             gap = target_gpa - user_gpa
             target_gpa_final = min(target_gpa + 0.05, 4.0 if user_gpa_unweighted > 0 else 5.0)
-            
+
             # Calculate impact based on gap size and college selectivity
             acceptance_rate = college_data.get('acceptance_rate', 0.15)
             selectivity_multiplier = 1.5 if acceptance_rate < 0.1 else 1.2 if acceptance_rate < 0.2 else 1.0
-            
+
             impact = int(gap * 15 * selectivity_multiplier)
             priority = "high" if gap > 0.2 else "medium"
-            
+
             improvements.append(ImprovementArea(
                 area="Academic Performance",
                 current=f"{user_gpa:.2f} GPA",
@@ -348,7 +347,7 @@ class ImprovementAnalysisService:
             target_gpa_final = min(target_gpa + 0.05, 4.0 if user_gpa_unweighted > 0 else 5.0)
             impact = 3  # Low impact since close to target
             priority = "low"
-            
+
             improvements.append(ImprovementArea(
                 area="Academic Performance",
                 current=f"{user_gpa:.2f} GPA",
@@ -362,17 +361,17 @@ class ImprovementAnalysisService:
                     "Maintain strong performance in remaining semesters"
                 ]
             ))
-        
+
         return improvements
-    
+
     def _analyze_standardized_testing(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze SAT/ACT scores with enhanced calculations"""
         improvements = []
-        
+
         # Get user test scores - handle both field name variations
         user_sat = profile.get('sat_total', profile.get('sat', 0))
         user_act = profile.get('act_composite', profile.get('act', 0))
-        
+
         # Convert string values to numbers if needed
         try:
             user_sat = float(user_sat) if user_sat else 0
@@ -380,13 +379,13 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             user_sat = 0
             user_act = 0
-        
+
         # Get college test score ranges
         college_sat_25th = college_data.get('sat_25th', 1400)
         college_sat_75th = college_data.get('sat_75th', 1550)
         college_act_25th = college_data.get('act_25th', 30)
         college_act_75th = college_data.get('act_75th', 35)
-        
+
         # Check SAT scores
         if user_sat > 0:
             if user_sat >= college_sat_75th:
@@ -396,14 +395,14 @@ class ImprovementAnalysisService:
                 # User needs significant improvement
                 gap = college_sat_25th - user_sat
                 target_sat = min(college_sat_75th, user_sat + 100)
-                
+
                 # Calculate impact based on gap and college selectivity
                 acceptance_rate = college_data.get('acceptance_rate', 0.15)
                 selectivity_multiplier = 1.3 if acceptance_rate < 0.1 else 1.1 if acceptance_rate < 0.2 else 1.0
-                
+
                 impact = int(gap / 8 * selectivity_multiplier)  # 1% per 8 SAT points
                 priority = "high" if gap > 100 else "medium"
-                
+
                 improvements.append(ImprovementArea(
                     area="Standardized Testing",
                     current=f"{user_sat} SAT",
@@ -423,7 +422,7 @@ class ImprovementAnalysisService:
                 target_sat = min(college_sat_75th + 50, 1600)
                 impact = 3  # Low impact since already competitive
                 priority = "low"
-                
+
                 improvements.append(ImprovementArea(
                     area="Standardized Testing",
                     current=f"{user_sat} SAT",
@@ -437,7 +436,7 @@ class ImprovementAnalysisService:
                         "Focus on math and reading comprehension"
                     ]
                 ))
-        
+
         elif user_act > 0:
             if user_act >= college_act_75th:
                 # User has met or exceeded 75th percentile - don't show this improvement
@@ -446,14 +445,14 @@ class ImprovementAnalysisService:
                 # User needs significant improvement
                 gap = college_act_25th - user_act
                 target_act = min(college_act_75th, user_act + 3)
-                
+
                 # Calculate impact based on gap and college selectivity
                 acceptance_rate = college_data.get('acceptance_rate', 0.15)
                 selectivity_multiplier = 1.3 if acceptance_rate < 0.1 else 1.1 if acceptance_rate < 0.2 else 1.0
-                
+
                 impact = int(gap * 2 * selectivity_multiplier)  # 2% per ACT point
                 priority = "high" if gap > 3 else "medium"
-                
+
                 improvements.append(ImprovementArea(
                     area="Standardized Testing",
                     current=f"{user_act} ACT",
@@ -474,7 +473,7 @@ class ImprovementAnalysisService:
                 target_act = min(college_act_75th + 1, 36)
                 impact = 3  # Low impact since already competitive
                 priority = "low"
-                
+
                 improvements.append(ImprovementArea(
                     area="Standardized Testing",
                     current=f"{user_act} ACT",
@@ -489,7 +488,7 @@ class ImprovementAnalysisService:
                         "Take the test multiple times for superscoring"
                     ]
                 ))
-        
+
         else:
             # No test scores provided - provide general guidance
             improvements.append(ImprovementArea(
@@ -507,18 +506,18 @@ class ImprovementAnalysisService:
                     "Consider test writing if required"
                 ]
             ))
-        
+
         return improvements
-    
+
     def _analyze_extracurriculars(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze extracurricular activities with enhanced depth analysis"""
         improvements = []
-        
+
         # Get user extracurricular data with string-to-number conversion
         ec_depth = profile.get('extracurricular_depth', 5)
         leadership = profile.get('leadership_positions', 0)
         passion_projects = profile.get('passion_projects', 0)
-        
+
         # Convert string values to numbers if needed
         try:
             ec_depth = float(ec_depth) if ec_depth else 5
@@ -528,10 +527,10 @@ class ImprovementAnalysisService:
             ec_depth = 5
             leadership = 0
             passion_projects = 0
-        
+
         # Calculate current level based on multiple factors
         current_level = (ec_depth + leadership + passion_projects) / 3
-        
+
         # Determine target based on college selectivity
         acceptance_rate = college_data.get('acceptance_rate', 0.15)
         if acceptance_rate < 0.1:  # Ultra-selective
@@ -540,14 +539,14 @@ class ImprovementAnalysisService:
             target_level = 7.5
         else:  # Selective
             target_level = 6.5
-        
+
         # Only provide guidance if current is below target
         if current_level < target_level:
             gap = target_level - current_level
             impact = int(gap * 3)  # 3% per level gap
             priority = "high" if gap > 2 else "medium"
             description = f"Increase depth and commitment in extracurricular activities for this competitive school"
-            
+
             improvements.append(ImprovementArea(
                 area="Extracurricular Activities",
                 current=f"{current_level:.1f}/10 overall depth",
@@ -564,16 +563,16 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If current >= target, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_leadership_awards(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze leadership positions and awards - ALWAYS provide guidance"""
         improvements = []
-        
+
         leadership = profile.get('leadership_positions', 0)
         awards = profile.get('awards_publications', 0)
-        
+
         # Convert string values to numbers if needed
         try:
             leadership = float(leadership) if leadership else 0
@@ -581,7 +580,7 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             leadership = 0
             awards = 0
-        
+
         # Check leadership positions
         if leadership >= 8:
             # User has exceptional leadership - don't show this improvement
@@ -618,7 +617,7 @@ class ImprovementAnalysisService:
                     "Document your leadership impact"
                 ]
             ))
-        
+
         # Only provide awards guidance if below target
         if awards < 3:
             improvements.append(ImprovementArea(
@@ -652,16 +651,16 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If awards >= 7, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_academic_rigor(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze AP courses and academic rigor with enhanced calculations"""
         improvements = []
-        
+
         # Get actual AP courses from profile data
         ap_count = profile.get('ap_count', 5)
-        
+
         # Convert string values to numbers if needed
         try:
             ap_count = int(float(ap_count)) if ap_count else 5
@@ -675,13 +674,13 @@ class ImprovementAnalysisService:
             target_ap = 5
         else:  # Selective
             target_ap = 3
-        
+
         # Only provide academic rigor guidance if below target
         if ap_count < target_ap:
             gap = target_ap - ap_count
             impact = int(gap * 2)  # 2% per AP course gap
             priority = "high" if gap > 3 else "medium"
-            
+
             improvements.append(ImprovementArea(
                 area="Academic Rigor",
                 current=f"{ap_count} AP courses",
@@ -698,16 +697,16 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If ap_count >= target_ap, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_research_innovation(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze research and innovation experience - ALWAYS provide guidance"""
         improvements = []
-        
+
         research = profile.get('research_experience', 0)
         passion_projects = profile.get('passion_projects', 0)
-        
+
         # Convert string values to numbers if needed
         try:
             research = float(research) if research else 0
@@ -715,7 +714,7 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             research = 0
             passion_projects = 0
-        
+
         # Always provide research guidance
         if research < 2:
             improvements.append(ImprovementArea(
@@ -751,7 +750,7 @@ class ImprovementAnalysisService:
                     "Document all research achievements"
                 ]
             ))
-        
+
         # Always provide passion projects guidance
         if passion_projects < 3:
             improvements.append(ImprovementArea(
@@ -787,16 +786,16 @@ class ImprovementAnalysisService:
                     "Document all project achievements"
                 ]
             ))
-        
+
         return improvements
-    
+
     def _analyze_essays_recommendations(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze essays and recommendations"""
         improvements = []
-        
+
         essay_quality = profile.get('essay_quality', 5)
         recommendations = profile.get('recommendations', 5)
-        
+
         # Convert string values to numbers if needed
         try:
             essay_quality = float(essay_quality) if essay_quality else 5
@@ -804,7 +803,7 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             essay_quality = 5
             recommendations = 5
-        
+
         if essay_quality < 8:
             improvements.append(ImprovementArea(
                 area="Essay Quality",
@@ -821,7 +820,7 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If essay_quality >= 8, don't show improvement
-        
+
         if recommendations < 8:
             improvements.append(ImprovementArea(
                 area="Recommendations",
@@ -838,20 +837,20 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If recommendations >= 8, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_major_specific(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze major-specific requirements and preparation"""
         improvements = []
-        
+
         intended_major = profile.get('intended_major', profile.get('major', 'General Studies'))
         # Always provide major-specific guidance, even if no specific major provided
-        
+
         # STEM majors require strong math/science background
         stem_majors = ['computer science', 'engineering', 'mathematics', 'physics', 'chemistry', 'biology', 'medicine']
         is_stem = any(major in intended_major.lower() for major in stem_majors)
-        
+
         if is_stem:
             # Check for STEM-specific activities
             research_experience = profile.get('research_experience', 0)
@@ -876,14 +875,14 @@ class ImprovementAnalysisService:
                     ]
                 ))
             # If research_experience >= 7, don't show improvement
-        
+
         # Business/Economics majors
         business_majors = ['business', 'economics', 'finance', 'marketing', 'management']
         is_business = any(major in intended_major.lower() for major in business_majors)
-        
+
         if is_business:
             business_ventures = profile.get('business_ventures', 0)
-            
+
             # Convert string values to numbers if needed
             try:
                 business_ventures = float(business_ventures) if business_ventures else 0
@@ -906,16 +905,16 @@ class ImprovementAnalysisService:
                     ]
                 ))
             # If business_ventures >= 6, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_geographic_diversity(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze geographic diversity factors"""
         improvements = []
-        
+
         geographic_diversity = profile.get('geographic_diversity', 5)
         firstgen_diversity = profile.get('firstgen_diversity', 5)
-        
+
         # Convert string values to numbers if needed
         try:
             geographic_diversity = float(geographic_diversity) if geographic_diversity else 5
@@ -923,7 +922,7 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             geographic_diversity = 5
             firstgen_diversity = 5
-        
+
         # First-generation college student - ALWAYS provide guidance
         if firstgen_diversity < 7:
             improvements.append(ImprovementArea(
@@ -957,7 +956,7 @@ class ImprovementAnalysisService:
                     "Document your educational journey"
                 ]
             ))
-        
+
         # Geographic diversity - ALWAYS provide guidance
         if geographic_diversity < 6:
             improvements.append(ImprovementArea(
@@ -991,16 +990,16 @@ class ImprovementAnalysisService:
                     "Document cultural contributions"
                 ]
             ))
-        
+
         return improvements
-    
+
     def _analyze_interview_interest(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze interview performance and demonstrated interest"""
         improvements = []
-        
+
         interview_quality = profile.get('interview', 5)
         demonstrated_interest = profile.get('demonstrated_interest', 5)
-        
+
         # Convert string values to numbers if needed
         try:
             interview_quality = float(interview_quality) if interview_quality else 5
@@ -1008,7 +1007,7 @@ class ImprovementAnalysisService:
         except (ValueError, TypeError):
             interview_quality = 5
             demonstrated_interest = 5
-        
+
         if interview_quality < 8:
             improvements.append(ImprovementArea(
                 area="Interview Skills",
@@ -1026,7 +1025,7 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If interview_quality >= 8, don't show improvement
-        
+
         if demonstrated_interest < 8:
             improvements.append(ImprovementArea(
                 area="Demonstrated Interest",
@@ -1044,21 +1043,21 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If demonstrated_interest >= 8, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_portfolio_creative(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze portfolio and creative work - ALWAYS provide guidance"""
         improvements = []
-        
+
         portfolio_audition = profile.get('portfolio_audition', 0)
-        
+
         # Convert string values to numbers if needed
         try:
             portfolio_audition = float(portfolio_audition) if portfolio_audition else 0
         except (ValueError, TypeError):
             portfolio_audition = 0
-        
+
         # Only provide portfolio guidance if below target
         if portfolio_audition < 8:
             improvements.append(ImprovementArea(
@@ -1077,21 +1076,21 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If portfolio_audition >= 8, don't show improvement
-        
+
         return improvements
-    
+
     def _analyze_volunteer_service(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze volunteer work and community service - ALWAYS provide guidance"""
         improvements = []
-        
+
         volunteer_work = profile.get('volunteer_work', 5)
-        
+
         # Convert string values to numbers if needed
         try:
             volunteer_work = float(volunteer_work) if volunteer_work else 5
         except (ValueError, TypeError):
             volunteer_work = 5
-        
+
         # Only provide volunteer guidance if below target
         if volunteer_work < 7:
             improvements.append(ImprovementArea(
@@ -1126,9 +1125,9 @@ class ImprovementAnalysisService:
                 ]
             ))
         # If volunteer_work >= 9, don't show improvement
-        
+
         return improvements
-    
+
     def _get_default_improvements(self) -> List[ImprovementArea]:
         """Return default improvements when college data is not available"""
         return [
@@ -1160,12 +1159,12 @@ class ImprovementAnalysisService:
                 actionable_steps=["Focus on 2-3 activities", "Take leadership roles", "Show long-term commitment"]
             )
         ]
-    
+
     def calculate_combined_impact(self, improvements: List[ImprovementArea]) -> int:
         """Calculate the combined potential impact of all improvements"""
         if not improvements:
             return 0
-        
+
         # Cap the combined impact at 35% for realistic expectations
         total_impact = sum(imp.impact for imp in improvements)
         return min(total_impact, 35)

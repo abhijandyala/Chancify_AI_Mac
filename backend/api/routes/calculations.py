@@ -25,13 +25,13 @@ def profile_to_factor_scores(
 ) -> dict:
     """
     Convert user profile data to factor scores for probability calculation.
-    
+
     This is where we map the database fields to our 0-10 scoring scale.
     """
     scores = {}
-    
+
     # Academic Factors (45% total weight)
-    
+
     # 1. GPA (25%)
     if academic_data and academic_data.gpa_unweighted:
         gpa = float(academic_data.gpa_unweighted)
@@ -49,13 +49,13 @@ def profile_to_factor_scores(
             scores["grades"] = 4.0
     else:
         scores["grades"] = 5.0  # Neutral if no data
-    
+
     # 2. Curriculum Rigor (12%)
     rigor_score = 5.0  # Default neutral
     if academic_data:
         ap_count = len(academic_data.ap_courses) if academic_data.ap_courses else 0
         honors_count = len(academic_data.honors_courses) if academic_data.honors_courses else 0
-        
+
         total_rigorous = ap_count + honors_count
         if total_rigorous >= 12:
             rigor_score = 9.5
@@ -68,7 +68,7 @@ def profile_to_factor_scores(
         elif total_rigorous >= 1:
             rigor_score = 5.5
     scores["rigor"] = rigor_score
-    
+
     # 3. Standardized Testing (8%)
     if academic_data and academic_data.sat_total:
         sat = academic_data.sat_total
@@ -102,28 +102,28 @@ def profile_to_factor_scores(
             scores["testing"] = 5.0
     else:
         scores["testing"] = 5.0  # Neutral if no data
-    
+
     # Qualitative Factors (13% total weight)
-    
+
     # 4. Essay (8%) - For now, neutral until we implement essay scoring
     scores["essay"] = 5.0
-    
+
     # 5. Recommendations (4%) - For now, neutral
     scores["recommendations"] = 5.0
-    
+
     # 6. Interview (1%) - For now, neutral
     scores["interview"] = 5.0
-    
+
     # Co-curricular (7.5% total weight)
-    
+
     # 7. Extracurriculars & Leadership (7.5%)
     ec_score = 5.0  # Default
     if extracurriculars:
-        leadership_count = sum(1 for ec in extracurriculars 
+        leadership_count = sum(1 for ec in extracurriculars
                              if ec.leadership_positions and len(ec.leadership_positions) > 0)
-        total_years = sum(len(ec.years_participated) if ec.years_participated else 0 
+        total_years = sum(len(ec.years_participated) if ec.years_participated else 0
                          for ec in extracurriculars)
-        
+
         # Score based on leadership and commitment
         if leadership_count >= 3 and total_years >= 10:
             ec_score = 9.0
@@ -136,62 +136,62 @@ def profile_to_factor_scores(
         elif total_years >= 2:
             ec_score = 5.5
     scores["ecs_leadership"] = ec_score
-    
+
     # Strategic Factors (9.5% total weight)
-    
+
     # 8. Application Timing (4%) - Default to neutral
     scores["plan_timing"] = 5.0
-    
+
     # 9. Major Fit (3%) - Default to neutral
     scores["major_fit"] = 5.0
-    
+
     # 10. Demonstrated Interest (1.5%) - Default to neutral
     scores["demonstrated_interest"] = 5.0
-    
+
     # Special Factors (6% total weight)
-    
+
     # 11. Athletic Recruitment (4%) - Default to low (not recruited)
     scores["athletic_recruit"] = 3.0
-    
+
     # 12. Portfolio/Audition (2%) - Default to neutral
     scores["portfolio_audition"] = 5.0
-    
+
     # Demographic Factors (6% total weight)
-    
+
     # 13. Geographic/Residency (3%) - Default to neutral
     scores["geography_residency"] = 5.0
-    
+
     # 14. First-gen/Diversity (3%) - Could be extracted from profile
     scores["firstgen_diversity"] = 5.0
-    
+
     # Financial Factors (3% total weight)
-    
+
     # 15. Ability to Pay (3%) - Default to neutral
     scores["ability_to_pay"] = 5.0
-    
+
     # Achievement Factors (2% total weight)
-    
+
     # 16. Awards/Publications (2%) - Default to neutral
     scores["awards_publications"] = 5.0
-    
+
     # Institutional Factors (3.5% total weight)
-    
+
     # 17. Policy Knob (2%) - Default to neutral
     scores["policy_knob"] = 5.0
-    
+
     # 18. Legacy (1.5%) - Default to low (not legacy)
     scores["legacy"] = 3.0
-    
+
     # Negative Factors (0.5% total weight)
-    
+
     # 19. Conduct Record (0.5%) - Default to high (clean record)
     scores["conduct_record"] = 9.0
-    
+
     # Contextual Factors (2% total weight)
-    
+
     # 20. High School Reputation (2%) - Default to neutral
     scores["hs_reputation"] = 5.0
-    
+
     return scores
 
 
@@ -203,12 +203,12 @@ async def calculate_probability(
 ):
     """
     Calculate admission probability for a specific college.
-    
+
     Args:
         college_id: UUID of the college
         current_user_profile: Current user's profile
         db: Database session
-        
+
     Returns:
         CalculationResponse: Probability calculation result
     """
@@ -219,24 +219,24 @@ async def calculate_probability(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="College not found"
         )
-    
+
     # Get user's academic data
     academic_data = db.query(AcademicData).filter(
         AcademicData.profile_id == current_user_profile.id
     ).first()
-    
+
     # Get user's extracurriculars
     extracurriculars = db.query(Extracurricular).filter(
         Extracurricular.profile_id == current_user_profile.id
     ).all()
-    
+
     # Convert profile to factor scores
     factor_scores = profile_to_factor_scores(
         current_user_profile,
         academic_data,
         extracurriculars
     )
-    
+
     # Calculate probability using our scoring system
     try:
         report = calculate_admission_probability(
@@ -245,7 +245,7 @@ async def calculate_probability(
             uses_testing=college.test_policy != "Blind",
             need_aware=college.financial_aid_policy == "Need-aware"
         )
-        
+
         # Determine category
         prob = report.probability
         if prob < 0.15:
@@ -256,7 +256,7 @@ async def calculate_probability(
             category = "target"
         else:
             category = "safety"
-        
+
         return CalculationResponse(
             college_id=college.id,
             college_name=college.name,
@@ -267,7 +267,7 @@ async def calculate_probability(
             policy_notes=report.policy_notes,
             category=category
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -283,17 +283,17 @@ async def calculate_batch_probabilities(
 ):
     """
     Calculate admission probabilities for multiple colleges.
-    
+
     Args:
         request: Batch calculation request with college IDs
         current_user_profile: Current user's profile
         db: Database session
-        
+
     Returns:
         BatchCalculationResponse: Array of calculation results
     """
     results = []
-    
+
     for college_id in request.college_ids:
         try:
             result = await calculate_probability(
@@ -305,7 +305,7 @@ async def calculate_batch_probabilities(
         except HTTPException:
             # Skip colleges that cause errors, log them
             continue
-    
+
     return BatchCalculationResponse(results=results)
 
 
@@ -316,18 +316,18 @@ async def get_calculation_history(
 ):
     """
     Get user's calculation history.
-    
+
     Args:
         current_user_profile: Current user's profile
         db: Database session
-        
+
     Returns:
         List[ProbabilityCalculationResponse]: Historical calculations
     """
     from database.models import ProbabilityCalculation
-    
+
     calculations = db.query(ProbabilityCalculation).filter(
         ProbabilityCalculation.profile_id == current_user_profile.id
     ).order_by(ProbabilityCalculation.calculated_at.desc()).limit(50).all()
-    
+
     return [ProbabilityCalculationResponse.from_orm(calc) for calc in calculations]

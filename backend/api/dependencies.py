@@ -21,13 +21,13 @@ def get_current_user_id(
 ) -> str:
     """
     Extract and validate JWT token to get current user ID.
-    
+
     Args:
         credentials: JWT token from Authorization header
-        
+
     Returns:
         str: User ID from token
-        
+
     Raises:
         HTTPException: If token is invalid or expired
     """
@@ -36,7 +36,7 @@ def get_current_user_id(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     token = credentials.credentials
 
     # Support custom tokens generated for Google/dev flows
@@ -58,9 +58,10 @@ def get_current_user_id(
             settings.supabase_service_key,  # Use service key to verify
             algorithms=[settings.algorithm]
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_value = payload.get("sub")
+        if user_id_value is None:
             raise credentials_exception
+        user_id: str = str(user_id_value)
         return user_id
     except JWTError:
         raise credentials_exception
@@ -72,14 +73,14 @@ def get_current_user_profile(
 ) -> UserProfile:
     """
     Get current user's profile from database.
-    
+
     Args:
         user_id: Current user's ID
         db: Database session
-        
+
     Returns:
         UserProfile: User's profile
-        
+
     Raises:
         HTTPException: If profile not found
     """
@@ -101,9 +102,9 @@ def get_optional_user_id(
     """
     if credentials is None:
         return None
-    
+
     token = credentials.credentials
-    
+
     # Support custom tokens generated for Google/dev flows
     if token.startswith("google_token_"):
         remainder = token[len("google_token_") :]
@@ -111,10 +112,10 @@ def get_optional_user_id(
         if parts and parts[0]:
             return parts[0]
         return None
-    
+
     if token.startswith("demo_token_"):
         return "demo_user"
-    
+
     try:
         # Decode JWT token (Supabase uses HS256)
         payload = jwt.decode(
@@ -122,8 +123,10 @@ def get_optional_user_id(
             settings.supabase_service_key,
             algorithms=[settings.algorithm]
         )
-        user_id: str = payload.get("sub")
-        return user_id
+        user_id_value = payload.get("sub")
+        if user_id_value is None:
+            return None
+        return str(user_id_value)
     except JWTError:
         return None
 
@@ -136,24 +139,24 @@ def get_optional_user_profile(
     Get current user's profile if authenticated, None otherwise.
     This allows endpoints to work with or without authentication.
     Handles database errors gracefully.
-    
+
     Args:
         credentials: Optional JWT token from Authorization header
         db: Database session (may be None if database unavailable)
-        
+
     Returns:
         Optional[UserProfile]: User's profile or None
     """
     # If no credentials, return None (not authenticated)
     if credentials is None:
         return None
-    
+
     # If database is unavailable, return None
     if db is None:
         return None
-    
+
     token = credentials.credentials
-    
+
     # Support custom tokens generated for Google/dev flows
     user_id = None
     if token.startswith("google_token_"):
@@ -174,10 +177,10 @@ def get_optional_user_profile(
             user_id = payload.get("sub")
         except JWTError:
             return None
-    
+
     if user_id is None:
         return None
-    
+
     try:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         return profile

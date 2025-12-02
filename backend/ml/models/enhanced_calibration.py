@@ -2,6 +2,9 @@
 # Enhanced Elite University Calibration System
 # Generated automatically based on statistical analysis
 
+from typing import Any
+
+
 def _load_enhanced_elite_calibration(self):
     """Load enhanced elite university calibration data for realistic probabilities."""
     return {
@@ -178,26 +181,26 @@ def _load_enhanced_elite_calibration(self):
         }
 }
 
-def _apply_enhanced_elite_calibration(self, probability: float, college: CollegeFeatures, student: StudentFeatures) -> float:
+def _apply_enhanced_elite_calibration(self, probability: float, college: Any, student: Any) -> float:
     """
     Apply enhanced elite university calibration based on profile strength.
-    
+
     Args:
         probability: Raw probability from ML model
         college: College features containing name
         student: Student features for profile strength assessment
-        
+
     Returns:
         Calibrated probability
     """
     college_name = college.name.lower()
-    
+
     # Check if this is an elite university
     for elite_name, calibration_data in self.elite_calibration.items():
         if elite_name.lower() in college_name or college_name in elite_name.lower():
             # Determine profile strength
             profile_strength = self._assess_profile_strength(student)
-            
+
             # Get appropriate calibration based on profile strength
             if profile_strength == 'perfect':
                 factor = calibration_data['calibration_factor'] * 1.2
@@ -211,11 +214,11 @@ def _apply_enhanced_elite_calibration(self, probability: float, college: College
             else:  # below_average
                 factor = calibration_data['calibration_factor'] * 0.5
                 max_prob = calibration_data['max_probability'] * 0.4
-            
+
             # Apply calibration
             calibrated_prob = probability * factor
             calibrated_prob = min(calibrated_prob, max_prob)
-            
+
             # Log the calibration for debugging
             print(f"ENHANCED CALIBRATION: {college.name}")
             print(f"  Profile strength: {profile_strength}")
@@ -224,16 +227,16 @@ def _apply_enhanced_elite_calibration(self, probability: float, college: College
             print(f"  Factor: {factor:.3f}")
             print(f"  Max prob: {max_prob:.3f}")
             print(f"  Acceptance rate: {calibration_data['acceptance_rate']:.1%}")
-            
+
             return calibrated_prob
-    
+
     # Not an elite university, return original probability
     return probability
 
-def _assess_profile_strength(self, student: StudentFeatures) -> str:
+def _assess_profile_strength(self, student: Any) -> str:
     """
     Assess student profile strength for calibration adjustment.
-    
+
     Returns:
         'perfect', 'strong', 'average', or 'below_average'
     """
@@ -243,24 +246,24 @@ def _assess_profile_strength(self, student: StudentFeatures) -> str:
         gpa_score += 2
     elif student.gpa_unweighted and student.gpa_unweighted >= 3.8:
         gpa_score += 1
-    
+
     if student.gpa_weighted and student.gpa_weighted >= 4.3:
         gpa_score += 2
     elif student.gpa_weighted and student.gpa_weighted >= 4.0:
         gpa_score += 1
-    
+
     # Check test scores
     test_score = 0
     if student.sat_total and student.sat_total >= 1550:
         test_score += 2
     elif student.sat_total and student.sat_total >= 1500:
         test_score += 1
-    
+
     if student.act_composite and student.act_composite >= 35:
         test_score += 2
     elif student.act_composite and student.act_composite >= 34:
         test_score += 1
-    
+
     # Check factor scores (extracurriculars, leadership, etc.)
     factor_score = 0
     if hasattr(student, 'factor_scores'):
@@ -269,10 +272,10 @@ def _assess_profile_strength(self, student: StudentFeatures) -> str:
             factor_score += 2
         elif high_factors >= 10:
             factor_score += 1
-    
+
     # Calculate total score
     total_score = gpa_score + test_score + factor_score
-    
+
     # Determine profile strength
     if total_score >= 6:
         return 'perfect'

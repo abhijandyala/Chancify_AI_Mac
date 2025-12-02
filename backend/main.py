@@ -20,6 +20,7 @@ from data.college_names_mapping import college_names_mapping
 from data.college_nickname_mapper import nickname_mapper
 from data.college_subject_emphasis import college_subject_emphasis
 from data.tuition_state_service import tuition_state_service
+from data.college_tuition_service import college_tuition_service
 from data.improvement_analysis_service import improvement_analysis_service
 
 # Configure logging
@@ -38,7 +39,7 @@ def safe_float(value, default=0.0):
     """Convert value to float, handling NaN, None, and infinity"""
     if value is None:
         return default
-    
+
     # Handle string inputs
     if isinstance(value, str):
         if not value.strip():
@@ -52,21 +53,21 @@ def safe_float(value, default=0.0):
             float_val = float(value)
         except (ValueError, TypeError):
             return default
-    
+
     # Check for NaN and infinity - only after conversion to float
     try:
         if pd.isna(float_val) or np.isinf(float_val):
             return default
     except (TypeError, ValueError):
         return default
-    
+
     return float_val
 
 def safe_int(value, default=0):
     """Convert value to int, handling NaN, None, and invalid values"""
     if value is None:
         return default
-    
+
     # Handle string inputs
     if isinstance(value, str):
         if not value.strip():
@@ -80,7 +81,7 @@ def safe_int(value, default=0):
             int_val = int(value)
         except (ValueError, TypeError):
             return default
-    
+
     return int_val
 
 def safe_round(value, decimals=4, default=0.0):
@@ -126,20 +127,20 @@ def is_allowed_origin(origin: str) -> bool:
     """Check whether the incoming request origin is allowed."""
     if not origin:
         return False
-    
+
     # Normalize origin (lowercase for comparison)
     origin_lower = origin.lower().strip()
-    
+
     # Check exact matches (case-insensitive)
     for allowed in allowed_origins:
         if allowed.lower() == origin_lower:
             return True
-    
+
     # Check suffix matches
     for suffix in allowed_origin_suffixes:
         if origin_lower.endswith(suffix.lower()):
             return True
-    
+
     return False
 
 
@@ -147,7 +148,7 @@ def is_allowed_origin(origin: str) -> bool:
 async def custom_cors_middleware(request: Request, call_next):
     """
     CORS middleware - handles ALL CORS requests including preflight OPTIONS.
-    
+
     CRITICAL: This is the ONLY CORS middleware - FastAPI's CORSMiddleware was removed
     to prevent conflicts. This middleware handles:
     - OPTIONS preflight requests
@@ -158,11 +159,11 @@ async def custom_cors_middleware(request: Request, call_next):
     origin = request.headers.get("origin")
     method = request.method
     path = request.url.path
-    
+
     # Log all CORS-related requests for debugging
     if origin or method == "OPTIONS":
         logger.info(f"🌐 CORS request - Method: {method}, Origin: {origin}, Path: {path}")
-    
+
     try:
         # Handle preflight OPTIONS requests FIRST
         if method == "OPTIONS":
@@ -173,18 +174,18 @@ async def custom_cors_middleware(request: Request, call_next):
                 response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
                 response.headers["Access-Control-Allow-Headers"] = "Authorization,Content-Type,ngrok-skip-browser-warning"
                 return response
-            
+
             # Check if origin is allowed
             origin_allowed = is_allowed_origin(origin)
             logger.info(f"🔍 OPTIONS preflight check - Origin: {origin}, Allowed: {origin_allowed}")
-            
+
             if origin_allowed:
                 # Create response with ALL required CORS headers
                 response = Response(status_code=204)
                 response.headers["Access-Control-Allow-Origin"] = origin
                 response.headers["Access-Control-Allow-Credentials"] = "true"
                 response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-                
+
                 # Handle requested headers
                 requested_headers = request.headers.get("access-control-request-headers", "")
                 allowed_headers = "Authorization,Content-Type,ngrok-skip-browser-warning"
@@ -193,7 +194,7 @@ async def custom_cors_middleware(request: Request, call_next):
                 response.headers["Access-Control-Allow-Headers"] = allowed_headers
                 response.headers["Access-Control-Max-Age"] = "86400"
                 response.headers["Vary"] = "Origin"
-                
+
                 logger.info(f"✅ CORS preflight ALLOWED - Origin: {origin}, Path: {path}, Headers: {allowed_headers}")
                 return response
             else:
@@ -203,7 +204,7 @@ async def custom_cors_middleware(request: Request, call_next):
                 logger.warning(f"   Allowed suffixes: {allowed_origin_suffixes}")
                 # Return 204 without CORS headers - browser will block
                 return Response(status_code=204)
-        
+
         # Handle actual requests (GET, POST, etc.)
         # Wrap in try/except to ensure CORS headers are ALWAYS added for allowed origins
         try:
@@ -216,7 +217,7 @@ async def custom_cors_middleware(request: Request, call_next):
                 content='{"detail": "Internal server error"}',
                 media_type="application/json"
             )
-        
+
         # CRITICAL: Add CORS headers to ALL responses (including errors) if origin is allowed
         # This ensures the browser can read the error response
         if origin:
@@ -235,9 +236,9 @@ async def custom_cors_middleware(request: Request, call_next):
         else:
             # No origin - might be same-origin or direct request
             logger.debug(f"Request without origin header - Path: {path}, Method: {method}")
-        
+
         return response
-        
+
     except Exception as e:
         logger.error(f"❌ CORS middleware EXCEPTION: {e}", exc_info=True)
         # Create error response with CORS headers
@@ -246,7 +247,7 @@ async def custom_cors_middleware(request: Request, call_next):
             content='{"detail": "Internal server error"}',
             media_type="application/json"
         )
-        
+
         # CRITICAL: Always add CORS headers for allowed origins, even on middleware errors
         if origin and is_allowed_origin(origin):
             response.headers["Access-Control-Allow-Origin"] = origin
@@ -255,7 +256,7 @@ async def custom_cors_middleware(request: Request, call_next):
             response.headers["Access-Control-Allow-Headers"] = "Authorization,Content-Type,ngrok-skip-browser-warning"
             response.headers["Vary"] = "Origin"
             logger.info(f"✅ CORS headers added after middleware error - Origin: {origin}")
-        
+
         return response
 
 # REMOVED FastAPI CORSMiddleware - using ONLY custom middleware
@@ -270,14 +271,14 @@ async def startup_event():
     logger.info(f"Starting Chancify AI API in {ENV} mode")
     logger.info(f"Python path: {os.environ.get('PYTHONPATH', 'not set')}")
     logger.info(f"Working directory: {os.getcwd()}")
-    
+
     try:
         create_tables()
         logger.info("✓ Database tables created/verified successfully")
     except Exception as e:
         logger.warning(f"⚠ Database initialization failed: {e}")
         logger.warning("  API will continue without database features")
-    
+
     logger.info("✓ Chancify AI API started successfully")
 
 @app.get("/")
@@ -308,7 +309,7 @@ async def health_check():
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
         db_status = "error"
-    
+
     return {
         "status": "healthy",
         "database": db_status,
@@ -321,21 +322,21 @@ async def health_check():
 async def search_colleges(q: str = "", limit: int = 20):
     """
     Search colleges by name, nickname, or abbreviation.
-    
+
     This endpoint searches through official names, common names, and abbreviations
     to find colleges matching the query.
-    
+
     Args:
         q: Search query (college name, nickname, or abbreviation)
         limit: Maximum number of results to return (default: 20, max: 100)
-        
+
     Returns:
         JSON response with matching colleges and their data
     """
     try:
         # Validate limit
         limit = min(max(1, limit), 100)
-        
+
         if not q or len(q.strip()) < 2:
             return {
                 "success": True,
@@ -343,7 +344,7 @@ async def search_colleges(q: str = "", limit: int = 20):
                 "total": 0,
                 "message": "Please provide a search query with at least 2 characters"
             }
-        
+
         # Use already loaded dataset if available to avoid IO and path issues
         try:
             college_df = real_college_suggestions.college_df
@@ -354,13 +355,13 @@ async def search_colleges(q: str = "", limit: int = 20):
                     os.path.join(os.getcwd(), 'backend', 'data', 'raw', 'real_colleges_integrated.csv'),  # From project root
                     'data/raw/real_colleges_integrated.csv',  # Relative to current working directory
                 ]
-                
+
                 csv_path = None
                 for path in possible_paths:
                     if os.path.exists(path):
                         csv_path = path
                         break
-                
+
                 if csv_path:
                     college_df = pd.read_csv(csv_path)
                 else:
@@ -373,15 +374,15 @@ async def search_colleges(q: str = "", limit: int = 20):
                 "total": 0,
                 "error": f"Unable to load college data: {e}"
             }
-        
+
         # Search for colleges directly in the CSV data
         query = q.strip().lower()
         matching_colleges = []
-        
+
         # First, try to find college by nickname/abbreviation
         official_name = nickname_mapper.find_college_by_nickname(q)
         logger.info(f"Nickname search for '{q}': {official_name}")
-        
+
         # If we found an official name from nickname mapping, search for that
         if official_name:
             logger.info(f"Searching for official name: {official_name}")
@@ -390,17 +391,17 @@ async def search_colleges(q: str = "", limit: int = 20):
                 if official_name.lower() in college_name or college_name in official_name.lower():
                     matching_colleges.append(row)
                     logger.info(f"Found match: {row.get('name', '')}")
-        
+
         # If no matches from nickname mapping, do regular search
         if not matching_colleges:
             logger.info(f"No nickname matches, doing regular search for: {query}")
-            
+
             # Search through college names
             for _, row in college_df.iterrows():
                 college_name = str(row.get('name', '')).lower()
                 if query in college_name:
                     matching_colleges.append(row)
-            
+
             # If still no matches, try broader search
             if not matching_colleges:
                 logger.info("No direct matches, trying broader search")
@@ -408,14 +409,14 @@ async def search_colleges(q: str = "", limit: int = 20):
                     college_name = str(row.get('name', '')).lower()
                     city = str(row.get('city', '')).lower()
                     state = str(row.get('state', '')).lower()
-                    
-                    if (query in city or query in state or 
+
+                    if (query in city or query in state or
                         any(word.startswith(query) for word in college_name.split())):
                         matching_colleges.append(row)
-        
+
         # Limit results
         matching_colleges = matching_colleges[:limit]
-        
+
         if not matching_colleges:
             return {
                 "success": True,
@@ -423,7 +424,7 @@ async def search_colleges(q: str = "", limit: int = 20):
                 "total": 0,
                 "message": f"No colleges found matching '{q}'"
             }
-        
+
         # Format results
         results = []
         for row in matching_colleges:
@@ -443,7 +444,7 @@ async def search_colleges(q: str = "", limit: int = 20):
                 }
             }
             results.append(college_data)
-        
+
         return {
             "success": True,
             "colleges": results,
@@ -452,7 +453,7 @@ async def search_colleges(q: str = "", limit: int = 20):
             "nickname_matched": official_name is not None,
             "message": f"Found {len(results)} colleges matching '{q}'"
         }
-        
+
     except Exception as e:
         logger.error(f"Error in search_colleges: {e}")
         return {
@@ -469,22 +470,22 @@ async def search_colleges(q: str = "", limit: int = 20):
 async def get_college_subject_emphasis(college_name: str):
     """
     Get subject emphasis percentages for a specific college.
-    
+
     This endpoint uses OpenAI API to analyze the college's academic focus
     and return percentage emphasis for different subject areas.
-    
+
     Args:
         college_name: Name of the college
-        
+
     Returns:
         JSON response with subject emphasis percentages
     """
     try:
         logger.info(f"Getting subject emphasis for: {college_name}")
-        
+
         # Get subject emphasis data
         subject_data = college_subject_emphasis.get_subject_emphasis_with_cache(college_name, suggestion_cache)
-        
+
         # Format for frontend
         subjects = []
         for subject, percentage in subject_data.items():
@@ -492,16 +493,16 @@ async def get_college_subject_emphasis(college_name: str):
                 "label": subject,
                 "value": percentage
             })
-        
+
         logger.info(f"Subject emphasis retrieved for {college_name}: {len(subjects)} subjects")
-        
+
         return {
             "success": True,
             "college_name": college_name,
             "subjects": subjects,
             "total_subjects": len(subjects)
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting subject emphasis for {college_name}: {e}")
         return {
@@ -518,30 +519,30 @@ async def get_college_subject_emphasis(college_name: str):
 async def get_college_tuition(college_name: str):
     """
     Get tuition and cost data for a specific college.
-    
+
     This endpoint returns real tuition, fees, room & board, and other costs
     for the specified college.
-    
+
     Args:
         college_name: Name of the college
-        
+
     Returns:
         JSON response with tuition and cost information
     """
     try:
         logger.info(f"Getting tuition data for: {college_name}")
-        
+
         # Get tuition data
         tuition_data = college_tuition_service.get_tuition_data_with_cache(college_name, suggestion_cache)
-        
+
         logger.info(f"Tuition data retrieved for {college_name}: ${tuition_data['total_in_state']:,} total")
-        
+
         return {
             "success": True,
             "college_name": college_name,
             "tuition_data": tuition_data
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting tuition data for {college_name}: {e}")
         return {
@@ -558,28 +559,28 @@ async def get_college_tuition(college_name: str):
 async def get_tuition_by_zipcode(college_name: str, zipcode: str):
     """
     Get tuition information for a college based on zipcode.
-    
+
     This endpoint determines if the zipcode qualifies for in-state tuition
     and returns the appropriate tuition amount.
-    
+
     Args:
         college_name: Name of the college
         zipcode: User's zipcode
-        
+
     Returns:
         JSON response with tuition information and state determination
     """
     try:
         logger.info(f"Getting tuition for {college_name} with zipcode {zipcode}")
-        
+
         # Get tuition data based on zipcode
         result = tuition_state_service.get_tuition_for_college_and_zipcode(college_name, zipcode)
-        
+
         if result['success']:
             logger.info(f"Tuition determined for {college_name}: ${result['tuition']:,} ({'in-state' if result['is_in_state'] else 'out-of-state'})")
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"Error getting tuition for {college_name} with zipcode {zipcode}: {e}")
         return {
@@ -598,26 +599,26 @@ async def get_tuition_by_zipcode(college_name: str, zipcode: str):
 async def get_improvement_analysis(college_name: str, user_profile: Dict[str, Any]):
     """
     Get personalized improvement recommendations for a specific college.
-    
+
     This endpoint analyzes the user's profile against the college's requirements
     and provides specific, actionable improvement areas.
-    
+
     Args:
         college_name: Name of the college
         user_profile: User's academic and extracurricular profile
-        
+
     Returns:
         JSON response with improvement areas and recommendations
     """
     try:
         logger.info(f"Getting improvement analysis for {college_name}")
-        
+
         # Get improvement recommendations
         improvements = improvement_analysis_service.analyze_user_profile(user_profile, college_name)
-        
+
         # Calculate combined impact
         combined_impact = improvement_analysis_service.calculate_combined_impact(improvements)
-        
+
         # Convert to JSON-serializable format
         improvements_data = []
         for imp in improvements:
@@ -630,7 +631,7 @@ async def get_improvement_analysis(college_name: str, user_profile: Dict[str, An
                 "description": imp.description,
                 "actionable_steps": imp.actionable_steps
             })
-        
+
         result = {
             "success": True,
             "college_name": college_name,
@@ -638,10 +639,10 @@ async def get_improvement_analysis(college_name: str, user_profile: Dict[str, An
             "combined_impact": combined_impact,
             "total_improvements": len(improvements)
         }
-        
+
         logger.info(f"Generated {len(improvements)} improvement recommendations for {college_name}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Error getting improvement analysis for {college_name}: {e}")
         return {
@@ -668,9 +669,9 @@ app.include_router(openai_routes.router, prefix="/api/openai", tags=["OpenAI Col
 # College data mapping based on training data
 def get_college_data(college_name: str) -> Dict[str, Any]:
     """Get college data based on college name from integrated data."""
-    
+
     logger.info(f"Getting college data for: {college_name}")
-    
+
     # Load the integrated college data
     try:
         # Try multiple possible paths
@@ -679,29 +680,29 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
             'data/raw/real_colleges_integrated.csv',  # Relative to current working directory
             os.path.join(os.getcwd(), 'backend', 'data', 'raw', 'real_colleges_integrated.csv'),  # From project root
         ]
-        
+
         csv_path = None
         for path in possible_paths:
             if os.path.exists(path):
                 csv_path = path
                 break
-        
+
         if csv_path:
             df = pd.read_csv(csv_path)
             logger.info(f"Loaded college data: {df.shape} from {csv_path}")
         else:
             raise FileNotFoundError(f"Could not find real_colleges_integrated.csv. Tried: {possible_paths}")
-        
+
         # Check if the input is a college ID (format: college_XXXXXX)
         college_row = None
         if college_name.startswith('college_'):
             college_id = college_name.replace('college_', '')
             logger.info(f"Looking for college ID: {college_id}")
-            
+
             # Try to find by unitid (MOST COMMON CASE)
             college_row = df[df['unitid'] == int(college_id)]
             logger.info(f"Found by unitid: {len(college_row)} rows")
-            
+
             if not college_row.empty:
                 logger.info(f"✅ SUCCESS: Found college by ID")
             else:
@@ -711,15 +712,16 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
             college_name_lower = college_name.lower()
             college_row = df[df['name'].str.lower() == college_name_lower]
             logger.info(f"Exact match found: {len(college_row)} rows")
-            
+
             # If exact match not found, try partial matching but prefer shorter matches
             if college_row.empty:
                 college_row = df[df['name'].str.lower().str.contains(college_name_lower, na=False)]
                 logger.info(f"Partial match found: {len(college_row)} rows")
                 # If multiple matches, prefer the one with the shortest name (most specific)
                 if not college_row.empty and len(college_row) > 1:
-                    college_row = college_row.loc[college_row['name'].str.len().idxmin():college_row['name'].str.len().idxmin()]
-        
+                    # Just take the first match since they all contain the query
+                    college_row = college_row.iloc[[0]]
+
         if college_row is not None and not college_row.empty:
             row = college_row.iloc[0]
             logger.info(f"Found college: {row['name']}")
@@ -728,7 +730,7 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
             logger.info(f"Row name value: {row.get('name', 'MISSING_NAME_COLUMN')}")
             logger.info(f"Row name type: {type(row.get('name'))}")
             logger.info(f"Row name is NaN: {pd.isna(row.get('name'))}")
-            
+
             # Try to get name from different possible column names
             college_actual_name = None
             if pd.notna(row.get('name')):
@@ -739,7 +741,7 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
                 college_actual_name = str(row['institution_name'])
             else:
                 college_actual_name = college_name  # Fallback to original input
-            
+
             result = {
                 'name': college_actual_name,
                 'acceptance_rate': float(row.get('acceptance_rate', 0.5)) if pd.notna(row.get('acceptance_rate')) else (float(row.get('acceptance_rate_percent', 50)) / 100 if pd.notna(row.get('acceptance_rate_percent')) else 0.5),
@@ -764,7 +766,7 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
             logger.warning(f"No college found for: {college_name}")
     except Exception as e:
         logger.warning(f"Could not load college data: {e}")
-    
+
     # Default fallback data
     logger.info(f"Returning fallback data for: {college_name}")
     return {
@@ -792,14 +794,14 @@ class FrontendProfileRequest(BaseModel):
     gpa_weighted: str = "3.8"
     sat: str = "1200"
     act: str = "25"
-    
+
     # Course rigor and class info
     rigor: str = "5"
     ap_count: str = "0"
     honors_count: str = "0"
     class_rank_percentile: str = "50"
     class_size: str = "300"
-    
+
     # Factor scores (1-10 scale from frontend dropdowns)
     extracurricular_depth: str = "5"
     leadership_positions: str = "5"
@@ -815,7 +817,7 @@ class FrontendProfileRequest(BaseModel):
     demonstrated_interest: str = "5"
     legacy_status: str = "5"
     hs_reputation: str = "5"
-    
+
     # Additional ML model fields (derived from dropdowns)
     geographic_diversity: str = "5"
     plan_timing: str = "5"
@@ -824,7 +826,7 @@ class FrontendProfileRequest(BaseModel):
     ability_to_pay: str = "5"
     policy_knob: str = "5"
     conduct_record: str = "9"
-    
+
     # Major and college
     major: str = "Computer Science"
     college: str = "Stanford University"
@@ -837,7 +839,7 @@ class PredictionRequest(BaseModel):
     sat: int
     act: int
     rigor: int
-    
+
     # Unique factors
     extracurricular_depth: int
     leadership_positions: int
@@ -856,7 +858,7 @@ class PredictionRequest(BaseModel):
     firstgen_diversity: int
     major: str
     hs_reputation: int
-    
+
     # College selection
     college: str
 
@@ -866,20 +868,20 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
     try:
         # Get predictor
         predictor = get_predictor()
-        
+
         # Convert frontend string values to appropriate types
         def safe_int(value: str) -> int:
             try:
                 return int(value) if value and value.strip() else 0
             except (ValueError, TypeError):
                 return 0
-        
+
         # Calculate derived factor scores from real data
         gpa_unweighted = safe_float(request.gpa_unweighted)
         gpa_weighted = safe_float(request.gpa_weighted)
         sat_score = safe_int(request.sat)
         act_score = safe_int(request.act)
-        
+
         # Calculate grades score from GPA (0-10 scale)
         def calculate_grades_score(gpa_unweighted, gpa_weighted):
             if gpa_unweighted > 0:
@@ -889,7 +891,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
                 # Convert 5.0 scale to 10.0 scale
                 return min(10.0, (gpa_weighted / 5.0) * 10.0)
             return 5.0  # Default neutral
-        
+
         # Calculate testing score from SAT/ACT (0-10 scale)
         def calculate_testing_score(sat, act):
             if sat > 0:
@@ -899,7 +901,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
                 # FIXED: More realistic ACT scoring - 20=5.0, 36=10.0
                 return min(10.0, max(0.0, ((act - 20) / 16) * 5.0 + 5.0))
             return 5.0  # Default neutral
-        
+
         # Calculate major fit score based on major relevance
         def calculate_major_fit_score(major, college_name):
             # This would ideally use a major-college relevance database
@@ -908,7 +910,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             if major in popular_majors:
                 return 7.0  # Good fit for popular majors
             return 6.0  # Neutral fit
-        
+
         # Create student features from frontend data
         student = StudentFeatures(
             # Academic metrics
@@ -916,13 +918,13 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             gpa_weighted=gpa_weighted,
             sat_total=sat_score,
             act_composite=act_score,
-            
+
             # Course rigor and class info
             ap_count=int(safe_float(request.extracurricular_depth) * 2),  # Estimate based on extracurricular depth
             honors_count=int(safe_float(request.extracurricular_depth) * 1.5),  # Estimate based on extracurricular depth
             class_rank_percentile=safe_float(request.hs_reputation) * 10,  # Estimate based on HS reputation
             class_size=500,  # Default class size
-            
+
             # Extracurricular counts and commitment
             ec_count=min(10, max(1, safe_int(request.extracurricular_depth) // 2)),  # Derive from extracurricular depth
             leadership_positions_count=safe_int(request.leadership_positions),
@@ -930,14 +932,14 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             hours_per_week=min(20.0, max(2.0, safe_float(request.extracurricular_depth) * 1.5)),  # Derive from extracurricular depth
             awards_count=safe_int(request.awards_publications),
             national_awards=min(5, max(0, safe_int(request.awards_publications) // 2)),  # Derive from awards/publications
-            
+
             # Demographics and diversity
             first_generation=safe_float(request.firstgen_diversity) > 7.0,  # Derive from firstgen_diversity
             underrepresented_minority=safe_float(request.firstgen_diversity) > 6.0,  # Derive from firstgen_diversity
             geographic_diversity=safe_float(request.geographic_diversity),
             legacy_status=bool(safe_int(request.legacy_status)),
             recruited_athlete=safe_float(request.volunteer_work) > 7.0,  # Derive from volunteer_work
-            
+
             # Factor scores (calculated from real data, not defaults)
             factor_scores={
                 'grades': calculate_grades_score(gpa_unweighted, gpa_weighted),
@@ -962,20 +964,20 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
                 'hs_reputation': safe_float(request.hs_reputation)
             }
         )
-        
+
         # Get college data with real acceptance rate from OpenAI
         college_data = get_college_data(request.college)
         logger.info(f"College data retrieved: {college_data}")
         logger.info(f"College name: {college_data.get('name', 'MISSING')}")
         logger.info(f"College city: {college_data.get('city', 'MISSING')}")
         logger.info(f"College state: {college_data.get('state', 'MISSING')}")
-        
+
         # Get real acceptance rate and subject emphasis from OpenAI API
         try:
             college_info = await college_info_service.get_college_info(college_data['name'])
             real_acceptance_rate = college_info['academics']['acceptance_rate']
             print(f"Using real acceptance rate for {college_data['name']}: {real_acceptance_rate:.1%}")
-            
+
             # Get subject emphasis data
             subject_data = await college_info_service.get_college_subject_emphasis(college_data['name'])
             subject_emphasis = subject_data['subject_emphasis']
@@ -993,7 +995,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
                 {"label": "Arts & Humanities", "value": 7},
                 {"label": "Education", "value": 5}
             ]
-        
+
         college = CollegeFeatures(
             name=college_data['name'],
             acceptance_rate=real_acceptance_rate,  # Use real acceptance rate from OpenAI
@@ -1006,10 +1008,10 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             selectivity_tier=college_data['selectivity_tier'],
             gpa_average=college_data['gpa_average']
         )
-        
+
         # Make hybrid prediction
         result = predictor.predict(student, college, model_name='ensemble', use_formula=True)
-        
+
         # Determine category based on final probability
         # Use same thresholds as suggestions endpoint: Safety: 75%+, Target: 25-75%, Reach: 10-25%
         prob = result.probability
@@ -1021,7 +1023,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             category = "reach"
         else:
             category = "reach"  # Default to reach for very low probabilities
-        
+
         return {
             "success": True,
             "college_id": request.college,
@@ -1057,7 +1059,7 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             # Return subject emphasis data from OpenAI
             "subject_emphasis": subject_emphasis
         }
-        
+
     except Exception as e:
         logger.error(f"Frontend prediction error: {e}")
         return {
@@ -1077,7 +1079,7 @@ class CollegeSuggestionsRequest(BaseModel):
     sat: str = "1200"                 # SAT total score (400-1600)
     act: str = "25"                   # ACT composite score (1-36)
     major: str = "Computer Science"   # Intended major of study
-    
+
     # Factor scores (1-10 scale from frontend dropdowns)
     # These represent the user's strength in various admission factors
     extracurricular_depth: str = "5"      # Depth and commitment to activities
@@ -1094,7 +1096,7 @@ class CollegeSuggestionsRequest(BaseModel):
     demonstrated_interest: str = "5"      # Show of interest in specific colleges
     legacy_status: str = "5"              # Legacy status (family alumni)
     hs_reputation: str = "5"              # High school reputation and rigor
-    
+
     # Additional ML model fields (derived from dropdowns)
     # These provide additional context for the ML model
     geographic_diversity: str = "5"       # Geographic diversity factor
@@ -1109,24 +1111,24 @@ class CollegeSuggestionsRequest(BaseModel):
 async def suggest_colleges(request: CollegeSuggestionsRequest):
     """
     Get AI-suggested colleges based on user profile using real IPEDS data.
-    
+
     This endpoint:
     1. Processes user profile data from frontend
     2. Calculates academic strength score
     3. Uses real IPEDS data to find colleges strong in the user's major
     4. Categorizes colleges into Safety/Target/Reach based on realistic probability ranges
     5. Returns balanced suggestions (3 safety, 3 target, 3 reach) with accurate major relevance
-    
+
     Args:
         request: CollegeSuggestionsRequest containing user profile data
-        
+
     Returns:
         JSON response with 9 balanced college suggestions and metadata
     """
     try:
         # Create cache key from request data
         cache_key = f"{request.gpa_unweighted}_{request.gpa_weighted}_{request.sat}_{request.act}_{request.major}_{request.extracurricular_depth}"
-        
+
         # Check cache first
         current_time = time.time()
         if cache_key in suggestion_cache:
@@ -1134,33 +1136,33 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
             if current_time - cache_time < CACHE_DURATION:
                 logger.info(f"Returning cached suggestions for key: {cache_key[:20]}...")
                 return cached_data
-        
+
         logger.info(f"Processing new suggestions for key: {cache_key[:20]}...")
-        
+
         # Convert frontend string values to appropriate types
         def safe_int(value: str) -> int:
             try:
                 return int(value) if value and value.strip() else 0
             except (ValueError, TypeError):
                 return 0
-        
+
         # Calculate academic strength
         gpa_unweighted = safe_float(request.gpa_unweighted)
         gpa_weighted = safe_float(request.gpa_weighted)
         sat_score = safe_int(request.sat)
         act_score = safe_int(request.act)
-        
+
         # Calculate academic strength (0-10 scale)
         gpa_score = min(10.0, (gpa_unweighted / 4.0) * 10.0) if gpa_unweighted > 0 else 5.0
         sat_score_scaled = min(10.0, max(0.0, ((sat_score - 1200) / 400) * 5.0 + 5.0)) if sat_score > 0 else 5.0
         act_score_scaled = min(10.0, max(0.0, ((act_score - 20) / 16) * 5.0 + 5.0)) if act_score > 0 else 5.0
-        
+
         # Use the higher of SAT or ACT
         test_score = max(sat_score_scaled, act_score_scaled)
-        
+
         # Calculate academic strength (0-10 scale)
         academic_strength = (gpa_score + test_score) / 2.0
-        
+
         # Calculate extracurricular strength
         ec_strength = (
             safe_float(request.extracurricular_depth) +
@@ -1168,37 +1170,37 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
             safe_float(request.awards_publications) +
             safe_float(request.passion_projects)
         ) / 4.0
-        
+
         # Calculate overall student strength
         student_strength = (academic_strength * 0.7) + (ec_strength * 0.3)
-        
+
         # Get real college suggestions based on major
         major = request.major
-        
+
         # Try to get balanced suggestions from real IPEDS data
         try:
             college_suggestions = real_college_suggestions.get_balanced_suggestions(major, student_strength)
-            
+
             # If we don't have enough suggestions, use fallback
             if len(college_suggestions) < 9:
                 college_suggestions = real_college_suggestions.get_fallback_suggestions(major, student_strength)
-            
+
         except Exception as e:
             logger.error(f"Error getting real college suggestions: {e}")
             college_suggestions = real_college_suggestions.get_fallback_suggestions(major, student_strength)
-        
-        
+
+
         # Convert to API response format
         suggestions = []
         for college_data in college_suggestions[:9]:  # Ensure exactly 9 suggestions
             college_name = college_data['name']
-            
+
             # Use the probability already calculated by the real_college_suggestions system
             probability = college_data.get('probability', 0.5)
-            
+
             # Get major relevance info
             major_relevance = get_major_relevance_info(college_name, major)
-            
+
             # Handle NaN values for enrollment
             student_body_size = college_data['student_body_size']
             if pd.isna(student_body_size) or student_body_size is None:
@@ -1206,7 +1208,7 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
                 student_body_size = 0
             else:
                 enrollment_str = f"{int(student_body_size):,}"
-            
+
             suggestion = {
                 'college_id': f"college_{college_data['unitid']}",
                 'name': college_name,
@@ -1230,12 +1232,12 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
                 'major_match': major_relevance['match_level'],
                 'major_relevance_score': safe_round(major_relevance['score'], 2)
             }
-            
+
             suggestions.append(suggestion)
-        
+
         # Calculate academic score for response (ensure JSON-compliant)
         academic_score = safe_float((gpa_unweighted * 25) + (sat_score * 0.1) + (act_score * 2.5) + (ec_strength * 5), 0)
-        
+
         # Determine target tiers based on academic strength
         target_tiers = []
         if academic_strength >= 8.0:
@@ -1244,7 +1246,7 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
             target_tiers = ['Highly Selective', 'Moderately Selective']
         else:
             target_tiers = ['Moderately Selective', 'Less Selective']
-        
+
         # Prepare response
         response_data = {
             "success": True,
@@ -1253,14 +1255,14 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
             "target_tiers": target_tiers,
             "prediction_method": "real_ipeds_data"
         }
-        
+
         # Cache the response
         suggestion_cache[cache_key] = (response_data, current_time)
-        
+
         logger.info(f"Cached suggestions for key: {cache_key[:20]}...")
-        
+
         return response_data
-        
+
     except Exception as e:
         logger.error(f"Error in suggest_colleges: {e}")
         import traceback
@@ -1273,7 +1275,7 @@ async def predict_admission(request: PredictionRequest):
     try:
         # Get predictor
         predictor = get_predictor()
-        
+
         # Create student features
         student = StudentFeatures(
             gpa_unweighted=request.gpa_unweighted,
@@ -1300,7 +1302,7 @@ async def predict_admission(request: PredictionRequest):
                 'hs_reputation': request.hs_reputation / 10.0,
             }
         )
-        
+
         # Create college features based on the selected college
         # Map college selection to actual training data
         college_data = get_college_data(request.college)
@@ -1315,10 +1317,10 @@ async def predict_admission(request: PredictionRequest):
             financial_aid_policy=college_data.get('financial_aid_policy', 'Need-blind'),
             selectivity_tier=college_data.get('selectivity_tier', 'Elite')
         )
-        
+
         # Make prediction
         result = predictor.predict(student, college)
-        
+
         # Determine outcome based on probability
         if result.probability >= 0.7:
             outcome = "Acceptance"
@@ -1326,7 +1328,7 @@ async def predict_admission(request: PredictionRequest):
             outcome = "Waitlist"
         else:
             outcome = "Rejection"
-        
+
         return {
             "probability": result.probability,
             "outcome": outcome,
@@ -1334,7 +1336,7 @@ async def predict_admission(request: PredictionRequest):
             "model_used": result.model_used,
             "explanation": result.explanation
         }
-        
+
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         # Return deterministic fallback based on student profile (NOT random)
@@ -1343,7 +1345,7 @@ async def predict_admission(request: PredictionRequest):
         gpa_weighted = safe_float(request.gpa_weighted)
         sat_score = safe_int(request.sat)
         act_score = safe_int(request.act)
-        
+
         # Calculate deterministic base probability from academic metrics
         if gpa_unweighted > 0:
             gpa_score = min(1.0, gpa_unweighted / 4.0)  # Normalize to 0-1
@@ -1351,25 +1353,25 @@ async def predict_admission(request: PredictionRequest):
             gpa_score = min(1.0, gpa_weighted / 5.0)  # Normalize to 0-1
         else:
             gpa_score = 0.5  # Default neutral
-        
+
         if sat_score > 0:
             test_score = min(1.0, max(0.0, (sat_score - 1200) / 400))  # 1200-1600 → 0-1
         elif act_score > 0:
             test_score = min(1.0, max(0.0, (act_score - 20) / 16))  # 20-36 → 0-1
         else:
             test_score = 0.5  # Default neutral
-        
+
         # Deterministic probability: average of GPA and test scores, capped at 85%
         deterministic_prob = (gpa_score + test_score) / 2.0
         deterministic_prob = max(0.02, min(0.85, deterministic_prob))
-        
+
         if deterministic_prob >= 0.7:
             outcome = "Acceptance"
         elif deterministic_prob >= 0.3:
             outcome = "Waitlist"
         else:
             outcome = "Rejection"
-            
+
         return {
             "probability": round(deterministic_prob, 4),
             "outcome": outcome,
@@ -1403,5 +1405,5 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
- 
- 
+
+

@@ -7,25 +7,25 @@
   "python.analysis.extraPaths": [
     "${workspaceFolder}/backend"
   ],
-  
+
   // Pyright settings - ensure it finds venv on both Windows and Mac
   "pyrightconfig.json": "${workspaceFolder}/pyrightconfig.json",
-  
+
   // Editor settings - consistent across platforms
   "files.eol": "\n",
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "files.encoding": "utf8",
-  
+
   // TypeScript/JavaScript settings
   "typescript.preferences.importModuleSpecifier": "relative",
   "javascript.preferences.importModuleSpecifier": "relative",
-  
+
   // File associations
   "files.associations": {
     "*.py": "python"
   },
-  
+
   // Exclude patterns
   "files.exclude": {
     "**/__pycache__": true,
@@ -37,7 +37,7 @@
     "**/node_modules": true,
     "**/.next": true
   },
-  
+
   // Search exclude
   "search.exclude": {
     "**/__pycache__": true,
@@ -45,7 +45,7 @@
     "**/node_modules": true,
     "**/.next": true
   },
-  
+
   // Python formatting
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
@@ -55,7 +55,7 @@
     },
     "editor.rulers": [88]
   },
-  
+
   // TypeScript/JavaScript formatting
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -65,10 +65,16 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  
+
   // JSON formatting
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
-  }
+  },
+  "cursorpyright.analysis.autoImportCompletions": true,
+  "cursorpyright.analysis.diagnosticMode": "workspace",
+  "cursorpyright.analysis.extraPaths": [
+    "${workspaceFolder}/backend"
+  ],
+  "cursorpyright.analysis.typeCheckingMode": "basic"
 }

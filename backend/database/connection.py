@@ -12,8 +12,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Supabase client for authentication
+supabase: Optional[Client] = None
 try:
-    supabase: Client = create_client(
+    supabase = create_client(
         settings.supabase_url,
         settings.supabase_service_key  # Use service key for admin operations
     )
@@ -44,7 +45,7 @@ except Exception as e:
 def get_db() -> Generator[Optional[Session], None, None]:
     """
     Dependency to get database session.
-    
+
     Yields:
         Optional[Session]: SQLAlchemy database session, or None if database unavailable
     """
@@ -52,7 +53,7 @@ def get_db() -> Generator[Optional[Session], None, None]:
         logger.error("Database not initialized, returning None for session.")
         yield None
         return
-    
+
     db = SessionLocal()
     try:
         yield db
@@ -64,12 +65,12 @@ def get_db() -> Generator[Optional[Session], None, None]:
             db.close()
 
 
-def get_supabase() -> Client:
+def get_supabase() -> Optional[Client]:
     """
     Get Supabase client instance.
-    
+
     Returns:
-        Client: Supabase client for authentication and database operations
+        Optional[Client]: Supabase client for authentication and database operations, or None if not initialized
     """
     return supabase
 
@@ -79,7 +80,7 @@ def create_tables():
     if engine is None:
         logger.warning("Cannot create tables: Database engine not initialized")
         return
-    
+
     try:
         from .models import Base
         Base.metadata.create_all(bind=engine)

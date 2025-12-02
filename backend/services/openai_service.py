@@ -3,7 +3,7 @@ OpenAI Service for College Information
 Fetches real-world college data like tuition, location, programs, etc.
 """
 
-import openai
+from openai import OpenAI
 import json
 import logging
 from typing import Dict, Any, Optional
@@ -23,27 +23,26 @@ class CollegeInfoService:
                 api_key = settings.openai_api_key
             except (ImportError, AttributeError):
                 api_key = None
-        
+
         if not api_key:
             logger.warning("OPENAI_API_KEY not set - OpenAI service will be disabled")
-            self.api_key = None
+            self.client = None
         else:
-            self.api_key = api_key
-            openai.api_key = api_key
+            self.client = OpenAI(api_key=api_key)
             logger.info("OpenAI API key configured successfully")
-    
+
     async def get_college_info(self, college_name: str) -> Dict[str, Any]:
         """
         Get comprehensive college information using OpenAI
-        
+
         Args:
             college_name: Name of the college
-            
+
         Returns:
             Dictionary with college information
         """
-        if not self.api_key:
-            logger.warning("OpenAI API key not available - returning fallback data")
+        if not self.client:
+            logger.warning("OpenAI client not available - returning fallback data")
             return {
                 "name": college_name,
                 "location": {
@@ -56,11 +55,11 @@ class CollegeInfoService:
                     "selectivity": "Moderately Selective"
                 }
             }
-        
+
         try:
             prompt = f"""
             Provide comprehensive information about {college_name} in JSON format. Include:
-            
+
             {{
                 "name": "Official college name",
                 "location": {{
@@ -96,11 +95,11 @@ class CollegeInfoService:
                     "special_features": ["List of 2-3 special features or unique aspects"]
                 }}
             }}
-            
+
             Use current data (2024-2025). If any information is not available, use "Unknown" or appropriate defaults.
             """
-            
-            response = openai.ChatCompletion.create(
+
+            response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a college information expert. Provide accurate, current data about colleges and universities."},
@@ -109,28 +108,31 @@ class CollegeInfoService:
                 temperature=0.3,
                 max_tokens=2000
             )
-            
+
             # Parse the JSON response
-            content = response.choices[0].message.content.strip()
-            
+            content = response.choices[0].message.content
+            if content is None:
+                return self._get_fallback_data(college_name)
+            content = content.strip()
+
             # Try to extract JSON from the response
             if content.startswith('```json'):
                 content = content[7:-3]  # Remove ```json and ```
             elif content.startswith('```'):
                 content = content[3:-3]  # Remove ``` and ```
-            
+
             college_data = json.loads(content)
-            
+
             # Validate and clean the data
             return self._validate_college_data(college_data)
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse OpenAI response for {college_name}: {e}")
             return self._get_fallback_data(college_name)
         except Exception as e:
             logger.error(f"OpenAI API error for {college_name}: {e}")
             return self._get_fallback_data(college_name)
-    
+
     def _validate_college_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and clean college data"""
         # Ensure numeric fields are properly formatted
@@ -142,7 +144,7 @@ class CollegeInfoService:
                         tuition[key] = float(tuition[key].replace(',', '').replace('$', ''))
                     except ValueError:
                         tuition[key] = 0
-        
+
         # Ensure acceptance rate is a decimal
         if 'academics' in data and 'acceptance_rate' in data['academics']:
             try:
@@ -155,9 +157,9 @@ class CollegeInfoService:
                 data['academics']['acceptance_rate'] = rate
             except ValueError:
                 data['academics']['acceptance_rate'] = 0.5
-        
+
         return data
-    
+
     def _get_fallback_data(self, college_name: str) -> Dict[str, Any]:
         """Return fallback data when OpenAI fails"""
         return {
@@ -195,26 +197,26 @@ class CollegeInfoService:
                 "special_features": ["Unknown"]
             }
         }
-    
+
     async def get_college_subject_emphasis(self, college_name: str) -> Dict[str, Any]:
         """
         Get subject emphasis data for a specific college using OpenAI
-        
+
         Args:
             college_name: Name of the college
-            
+
         Returns:
             Dictionary with subject emphasis percentages
         """
-        if not self.api_key:
-            logger.warning("OpenAI API key not available - returning fallback subject data")
+        if not self.client:
+            logger.warning("OpenAI client not available - returning fallback subject data")
             return self._get_fallback_subject_data()
-        
+
         try:
             prompt = f"""
-            Provide the subject emphasis/major distribution for {college_name} in JSON format. 
+            Provide the subject emphasis/major distribution for {college_name} in JSON format.
             Based on enrollment data and program popularity, provide percentages for these categories:
-            
+
             {{
                 "subject_emphasis": [
                     {{"label": "Computer Science", "value": "percentage"}},
@@ -227,7 +229,7 @@ class CollegeInfoService:
                     {{"label": "Education", "value": "percentage"}}
                 ]
             }}
-            
+
             Requirements:
             - Use current enrollment data (2024-2025)
             - Percentages should add up to approximately 100%
@@ -235,15 +237,15 @@ class CollegeInfoService:
             - If a college is known for specific programs (e.g., CMU for CS/Engineering), reflect that
             - Use realistic percentages based on the college's reputation and actual programs
             - If data is not available, use reasonable estimates based on college type and reputation
-            
+
             Example for Carnegie Mellon University (known for CS/Engineering):
             - Computer Science: 35-40%
             - Engineering: 25-30%
             - Business: 10-15%
             - Other subjects: lower percentages
             """
-            
-            response = openai.ChatCompletion.create(
+
+            response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a higher education data expert. Provide accurate enrollment and program distribution data for colleges and universities."},
@@ -252,41 +254,44 @@ class CollegeInfoService:
                 temperature=0.2,
                 max_tokens=1000
             )
-            
+
             # Parse the JSON response
-            content = response.choices[0].message.content.strip()
-            
+            content = response.choices[0].message.content
+            if content is None:
+                return self._get_fallback_subject_data()
+            content = content.strip()
+
             # Try to extract JSON from the response
             if content.startswith('```json'):
                 content = content[7:-3]  # Remove ```json and ```
             elif content.startswith('```'):
                 content = content[3:-3]  # Remove ``` and ```
-            
+
             subject_data = json.loads(content)
-            
+
             # Validate and clean the data
             return self._validate_subject_data(subject_data)
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse OpenAI subject response for {college_name}: {e}")
             return self._get_fallback_subject_data()
         except Exception as e:
             logger.error(f"OpenAI API error for subject data {college_name}: {e}")
             return self._get_fallback_subject_data()
-    
+
     def _validate_subject_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and clean subject emphasis data"""
         if 'subject_emphasis' not in data:
             return self._get_fallback_subject_data()
-        
+
         subjects = data['subject_emphasis']
-        
+
         # Ensure all required subjects are present and have numeric values
         required_subjects = [
             'Computer Science', 'Engineering', 'Business', 'Biological Sciences',
             'Mathematics & Stats', 'Social Sciences', 'Arts & Humanities', 'Education'
         ]
-        
+
         validated_subjects = []
         for subject in subjects:
             if subject.get('label') in required_subjects:
@@ -298,20 +303,20 @@ class CollegeInfoService:
                     })
                 except (ValueError, TypeError):
                     continue
-        
+
         # Ensure we have all required subjects
         for req_subject in required_subjects:
             if not any(s['label'] == req_subject for s in validated_subjects):
                 validated_subjects.append({'label': req_subject, 'value': 5.0})
-        
+
         # Normalize percentages to sum to ~100
         total = sum(s['value'] for s in validated_subjects)
         if total > 0:
             for subject in validated_subjects:
                 subject['value'] = round((subject['value'] / total) * 100, 1)
-        
+
         return {'subject_emphasis': validated_subjects}
-    
+
     def _get_fallback_subject_data(self) -> Dict[str, Any]:
         """Return fallback subject data when OpenAI fails"""
         return {
@@ -326,7 +331,7 @@ class CollegeInfoService:
                 {"label": "Education", "value": 5}
             ]
         }
-    
+
     async def get_multiple_colleges_info(self, college_names: list) -> Dict[str, Dict[str, Any]]:
         """Get information for multiple colleges"""
         results = {}

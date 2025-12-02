@@ -22,6 +22,7 @@ pandas>=2.0.0
 numpy>=1.24.0
 joblib>=1.3.0
 xgboost>=2.0.0
+lightgbm>=4.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 
@@ -33,8 +34,13 @@ bcrypt==4.1.2
 
 # Utilities
 python-dotenv==1.0.0
-httpx>=0.24.0,<0.25.0
+httpx>=0.24.0
 aiofiles==23.2.1
+requests>=2.31.0
+
+# Web Scraping (for Reddit and other scrapers)
+beautifulsoup4>=4.12.0
+praw>=7.7.0
 
 # Testing
 pytest==7.4.4
@@ -46,9 +52,9 @@ black==24.1.1
 ruff==0.1.14
 mypy==1.8.0
 
-# API Documentation
-pydantic[email]==2.5.3
-
 # OpenAI Integration
 openai>=1.0.0
 
+# Type stubs for better IDE support
+pandas-stubs>=2.0.0
+types-requests>=2.31.0

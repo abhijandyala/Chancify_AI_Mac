@@ -29,30 +29,37 @@ async def google_oauth_callback(
 ) -> Dict[str, Any]:
     """
     Handle Google OAuth callback and create user in local database.
-    
+
     Args:
         email: User's email from Google
         name: User's name from Google
         google_id: Google user ID
         db: Database session
-        
+
     Returns:
         Dict: Access token and user information
     """
     supabase = get_supabase()
-    
+
     try:
         # Check if user already exists in Supabase Auth
+        if supabase is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service not available"
+            )
         existing_users = supabase.auth.admin.list_users()
         user_exists = False
         user_id = None
-        
-        for user in existing_users.users:
+
+        # Access users list safely
+        users_list = getattr(existing_users, 'users', []) or []
+        for user in users_list:
             if user.email == email:
                 user_exists = True
                 user_id = user.id
                 break
-        
+
         if not user_exists:
             # Create user in Supabase Auth
             auth_response = supabase.auth.admin.create_user({
@@ -64,10 +71,10 @@ async def google_oauth_callback(
                 }
             })
             user_id = auth_response.user.id
-        
+
         # Check if profile already exists in local database
         existing_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-        
+
         if not existing_profile:
             # Create profile in local database
             profile_data = UserProfileCreate(
@@ -75,7 +82,7 @@ async def google_oauth_callback(
                 last_name=' '.join(name.split(' ')[1:]) if name and len(name.split(' ')) > 1 else None,
                 email=email
             )
-            
+
             profile = UserProfile(
                 user_id=user_id,
                 **profile_data.dict()
@@ -85,11 +92,11 @@ async def google_oauth_callback(
             db.refresh(profile)
         else:
             profile = existing_profile
-        
+
         # Generate a session token (simplified for demo)
         # In production, you'd want to use proper JWT tokens
         access_token = f"google_token_{user_id}_{google_id}"
-        
+
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -100,7 +107,7 @@ async def google_oauth_callback(
                 "profile": UserProfileResponse.from_orm(profile) if profile else None
             }
         }
-        
+
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -118,33 +125,33 @@ async def signup(
 ) -> Dict[str, Any]:
     """
     Create a new user account and profile.
-    
+
     Args:
         email: User's email address
         password: User's password
         profile_data: Initial profile information
         db: Database session
-        
+
     Returns:
         Dict: Access token and user information
     """
     supabase = get_supabase()
-    
+
     try:
         # Create user in Supabase Auth
         auth_response = supabase.auth.sign_up({
             "email": email,
             "password": password
         })
-        
+
         if auth_response.user is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to create user account"
             )
-        
+
         user_id = auth_response.user.id
-        
+
         # Create profile in our database
         profile = UserProfile(
             user_id=user_id,
@@ -153,10 +160,12 @@ async def signup(
         db.add(profile)
         db.commit()
         db.refresh(profile)
-        
+
         # Return token and user info
+        session = auth_response.session
+        access_token = session.access_token if session else f"temp_token_{user_id}"
         return {
-            "access_token": auth_response.session.access_token,
+            "access_token": access_token,
             "token_type": "bearer",
             "user": {
                 "id": user_id,
@@ -164,7 +173,7 @@ async def signup(
                 "profile": UserProfileResponse.from_orm(profile)
             }
         }
-        
+
     except Exception as e:
         db.rollback()
         if "already registered" in str(e).lower():
@@ -186,37 +195,39 @@ async def login(
 ) -> Dict[str, Any]:
     """
     Login existing user.
-    
+
     Args:
         email: User's email address
         password: User's password
         db: Database session
-        
+
     Returns:
         Dict: Access token and user information
     """
     supabase = get_supabase()
-    
+
     try:
         # Authenticate with Supabase
         auth_response = supabase.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
-        
+
         if auth_response.user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
-        
+
         user_id = auth_response.user.id
-        
+
         # Get user profile
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-        
+
+        session = auth_response.session
+        access_token = session.access_token if session else f"temp_token_{user_id}"
         return {
-            "access_token": auth_response.session.access_token,
+            "access_token": access_token,
             "token_type": "bearer",
             "user": {
                 "id": user_id,
@@ -224,7 +235,7 @@ async def login(
                 "profile": UserProfileResponse.from_orm(profile) if profile else None
             }
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -252,7 +263,7 @@ async def get_current_user(
     try:
         if current_user is None:
             return {"detail": "Not authenticated", "authenticated": False}
-        
+
         from database.schemas import CompleteProfileResponse
         return CompleteProfileResponse.from_orm(current_user)
     except Exception as e:

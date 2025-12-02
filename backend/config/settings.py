@@ -18,23 +18,22 @@ _BaseSettings: Any = BaseSettings
 class Settings(_BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Supabase Configuration
-    supabase_url: str = "https://vwvqfellrhxznesaifwe.supabase.co"
-    supabase_anon_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dnFmZWxscmh4em5lc2FpZndlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyNzU2NjQsImV4cCI6MjA3NTg1MTY2NH0.TBYg6XEy1cmsPePkT2Q5tSSDcEqi0AWNCTt7pGT2ZBc"
-    supabase_service_key: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3dnFmZWxscmh4em5lc2FpZndlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDI3NTY2NCwiZXhwIjoyMDc1ODUxNjY0fQ.zVtdMf9Z5gklqfmkjUdMeALE3AGqVlGz1efoNHqSiK4"
+    # Supabase Configuration - Load from environment variables
+    supabase_url: str = os.getenv("SUPABASE_URL", "")
+    supabase_anon_key: str = os.getenv("SUPABASE_ANON_KEY", "")
+    supabase_service_key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 
     # Database - Railway PostgreSQL
-    # IMPORTANT: Use DATABASE_PUBLIC_URL for local development (works from your PC)
-    # Use DATABASE_URL (postgres.railway.internal) only when deployed on Railway
-    database_url: str = "postgresql://postgres:aLrUyIYMFZrWalrETCKLmhHNlTKCyfvU@shuttle.proxy.rlwy.net:22500/railway"
+    # Set via DATABASE_URL environment variable in Railway
+    database_url: str = os.getenv("DATABASE_URL", "")
 
     # API Configuration
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     debug: bool = True
 
-    # Security
-    secret_key: str = "chancify-ai-secret-key-change-in-production"
+    # Security - Load from environment variable
+    secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 

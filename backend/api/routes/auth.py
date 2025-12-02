@@ -137,6 +137,12 @@ async def signup(
     """
     supabase = get_supabase()
 
+    if supabase is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
     try:
         # Create user in Supabase Auth
         auth_response = supabase.auth.sign_up({
@@ -205,6 +211,12 @@ async def login(
         Dict: Access token and user information
     """
     supabase = get_supabase()
+
+    if supabase is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
 
     try:
         # Authenticate with Supabase

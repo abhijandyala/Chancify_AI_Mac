@@ -138,7 +138,7 @@ class RealDataIntegrator:
 
         return df
 
-    def _get_elite_college_data(self, college_name: str) -> Dict:
+    def _get_elite_college_data(self, college_name: str) -> Optional[Dict[str, Any]]:
         """Get real data for elite colleges"""
         # Real acceptance rates for elite colleges (2023-2024 data)
         elite_data = {
@@ -188,7 +188,7 @@ class RealDataIntegrator:
                 'financial_aid_policy': 'Need-blind',
                 'control': 'Private'
             }
-        return {}
+        return None
 
     def _standardize_selectivity(self, df: pd.DataFrame) -> pd.DataFrame:
         """Standardize selectivity classifications based on real acceptance rates"""

@@ -169,9 +169,13 @@ async def signup(
 
         # Return token and user info
         session = auth_response.session
-        access_token = session.access_token if session else f"temp_token_{user_id}"
+        if not session or not session.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create authentication session"
+            )
         return {
-            "access_token": access_token,
+            "access_token": session.access_token,
             "token_type": "bearer",
             "user": {
                 "id": user_id,
@@ -237,9 +241,13 @@ async def login(
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
 
         session = auth_response.session
-        access_token = session.access_token if session else f"temp_token_{user_id}"
+        if not session or not session.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create authentication session"
+            )
         return {
-            "access_token": access_token,
+            "access_token": session.access_token,
             "token_type": "bearer",
             "user": {
                 "id": user_id,

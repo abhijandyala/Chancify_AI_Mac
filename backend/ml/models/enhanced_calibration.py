@@ -2,7 +2,10 @@
 # Enhanced Elite University Calibration System
 # Generated automatically based on statistical analysis
 
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ml.preprocessing.feature_extractor import CollegeFeatures, StudentFeatures
 
 
 def _load_enhanced_elite_calibration(self):
@@ -181,7 +184,7 @@ def _load_enhanced_elite_calibration(self):
         }
 }
 
-def _apply_enhanced_elite_calibration(self, probability: float, college: Any, student: Any) -> float:
+def _apply_enhanced_elite_calibration(self, probability: float, college: "CollegeFeatures", student: "StudentFeatures") -> float:
     """
     Apply enhanced elite university calibration based on profile strength.
 
@@ -233,7 +236,7 @@ def _apply_enhanced_elite_calibration(self, probability: float, college: Any, st
     # Not an elite university, return original probability
     return probability
 
-def _assess_profile_strength(self, student: Any) -> str:
+def _assess_profile_strength(self, student: "StudentFeatures") -> str:
     """
     Assess student profile strength for calibration adjustment.
 

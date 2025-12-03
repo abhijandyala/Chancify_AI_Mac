@@ -34,6 +34,18 @@ RUN set -e \
     fi \
  && if [ -f /app/backend/data/models/random_forest.joblib.gz ]; then \
       gunzip -c /app/backend/data/models/random_forest.joblib.gz > /app/backend/data/models/random_forest.joblib; \
+    fi \
+ && if [ -f /app/backend/data/models/logistic_regression.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/logistic_regression.joblib.gz > /app/backend/data/models/logistic_regression.joblib; \
+    fi \
+ && if [ -f /app/backend/data/models/xgboost.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/xgboost.joblib.gz > /app/backend/data/models/xgboost.joblib; \
+    fi \
+ && if [ -f /app/backend/data/models/scaler.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/scaler.joblib.gz > /app/backend/data/models/scaler.joblib; \
+    fi \
+ && if [ -f /app/backend/data/models/feature_selector.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/feature_selector.joblib.gz > /app/backend/data/models/feature_selector.joblib; \
     fi
 
 # Copy data files that are outside the backend folder
@@ -45,7 +57,11 @@ COPY therealdatabase /app/therealdatabase
 # Verify critical files exist (build will fail if not)
 RUN ls -la /app/backend/data/raw/real_colleges_integrated.csv && \
     ls -la /app/backend/data/models/ensemble.joblib && \
-    ls -la /app/backend/data/models/random_forest.joblib
+    ls -la /app/backend/data/models/logistic_regression.joblib && \
+    ls -la /app/backend/data/models/random_forest.joblib && \
+    ls -la /app/backend/data/models/xgboost.joblib && \
+    ls -la /app/backend/data/models/scaler.joblib && \
+    ls -la /app/backend/data/models/feature_selector.joblib
 
 # Set environment variables
 ENV PYTHONPATH=/app/backend:/app

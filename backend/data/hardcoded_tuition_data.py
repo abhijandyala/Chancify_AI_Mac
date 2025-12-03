@@ -23,7 +23,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 84777,
         "is_private": True
     },
-    
+
     # Massachusetts Institute of Technology - Private university
     "massachusetts institute of technology": {
         "in_state_tuition": 57986,
@@ -36,7 +36,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 80496,
         "is_private": True
     },
-    
+
     # Harvard University - Private university
     "harvard university": {
         "in_state_tuition": 57261,
@@ -49,7 +49,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79761,
         "is_private": True
     },
-    
+
     # Stanford University - Private university
     "stanford university": {
         "in_state_tuition": 61731,
@@ -62,7 +62,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 84253,
         "is_private": True
     },
-    
+
     # Yale University - Private university
     "yale university": {
         "in_state_tuition": 62250,
@@ -75,7 +75,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 82750,
         "is_private": True
     },
-    
+
     # Princeton University - Private university
     "princeton university": {
         "in_state_tuition": 59270,
@@ -88,7 +88,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79770,
         "is_private": True
     },
-    
+
     # Columbia University - Private university
     "columbia university": {
         "in_state_tuition": 65024,
@@ -101,7 +101,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 84024,
         "is_private": True
     },
-    
+
     # University of Pennsylvania - Private university
     "university of pennsylvania": {
         "in_state_tuition": 61678,
@@ -114,7 +114,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 80178,
         "is_private": True
     },
-    
+
     # Brown University - Private university
     "brown university": {
         "in_state_tuition": 62580,
@@ -127,7 +127,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 81080,
         "is_private": True
     },
-    
+
     # Dartmouth College - Private university
     "dartmouth college": {
         "in_state_tuition": 62558,
@@ -140,7 +140,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 81558,
         "is_private": True
     },
-    
+
     # Cornell University - Private university
     "cornell university": {
         "in_state_tuition": 61615,
@@ -153,7 +153,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79615,
         "is_private": True
     },
-    
+
     # California Institute of Technology - Private university
     "california institute of technology": {
         "in_state_tuition": 58680,
@@ -166,7 +166,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 78680,
         "is_private": True
     },
-    
+
     # Duke University - Private university
     "duke university": {
         "in_state_tuition": 61250,
@@ -179,7 +179,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 80250,
         "is_private": True
     },
-    
+
     # Northwestern University - Private university
     "northwestern university": {
         "in_state_tuition": 62040,
@@ -192,7 +192,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 81040,
         "is_private": True
     },
-    
+
     # Rice University - Private university
     "rice university": {
         "in_state_tuition": 52060,
@@ -205,7 +205,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 70060,
         "is_private": True
     },
-    
+
     # Vanderbilt University - Private university
     "vanderbilt university": {
         "in_state_tuition": 60000,
@@ -218,7 +218,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79000,
         "is_private": True
     },
-    
+
     # University of Notre Dame - Private university
     "university of notre dame": {
         "in_state_tuition": 58000,
@@ -231,7 +231,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 76000,
         "is_private": True
     },
-    
+
     # University of California-Berkeley - Public university
     "university of california-berkeley": {
         "in_state_tuition": 14312,
@@ -244,7 +244,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 67007,
         "is_private": False
     },
-    
+
     # University of California-Los Angeles - Public university
     "university of california-los angeles": {
         "in_state_tuition": 13104,
@@ -257,7 +257,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 66098,
         "is_private": False
     },
-    
+
     # New York University - Private university
     "new york university": {
         "in_state_tuition": 56500,
@@ -270,7 +270,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 78500,
         "is_private": True
     },
-    
+
     # University of Southern California - Private university
     "university of southern california": {
         "in_state_tuition": 61000,
@@ -283,7 +283,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79000,
         "is_private": True
     },
-    
+
     # Boston College - Private university
     "boston college": {
         "in_state_tuition": 61000,
@@ -296,7 +296,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79000,
         "is_private": True
     },
-    
+
     # Georgetown University - Private university
     "georgetown university": {
         "in_state_tuition": 59000,
@@ -309,7 +309,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 79000,
         "is_private": True
     },
-    
+
     # Johns Hopkins University - Private university
     "johns hopkins university": {
         "in_state_tuition": 58000,
@@ -322,7 +322,7 @@ COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
         "total_out_state": 77000,
         "is_private": True
     },
-    
+
     # Washington University in St Louis - Private university
     "washington university in st louis": {
         "in_state_tuition": 59000,
@@ -397,6 +397,29 @@ def _load_csv_tuition_data() -> None:
 # Load CSV data once at import so every college has entries
 _load_csv_tuition_data()
 
+def _with_totals(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure totals accurately reflect component costs."""
+    data = dict(data)  # shallow copy so global dict isn't mutated
+
+    in_state = _safe_number(data.get("in_state_tuition"), 0)
+    out_state = _safe_number(data.get("out_state_tuition"), in_state)
+    fees = _safe_number(data.get("fees"), 0)
+    room_board = _safe_number(data.get("room_board"), 0)
+    books = _safe_number(data.get("books"), 0)
+    other = _safe_number(data.get("other_expenses"), 0)
+
+    data["in_state_tuition"] = round(in_state)
+    data["out_state_tuition"] = round(out_state)
+    data["fees"] = round(fees)
+    data["room_board"] = round(room_board)
+    data["books"] = round(books)
+    data["other_expenses"] = round(other)
+    data["total_in_state"] = round(in_state + fees + room_board + books + other)
+    data["total_out_state"] = round(out_state + fees + room_board + books + other)
+
+    return data
+
+
 def get_tuition_data_for_college(college_name: str) -> dict:
     """
     Get tuition and cost data for a college.
@@ -404,18 +427,18 @@ def get_tuition_data_for_college(college_name: str) -> dict:
     """
     # Normalize college name for lookup
     normalized_name = college_name.lower().strip()
-    
+
     # Check if we have hardcoded data for this college
     if normalized_name in COLLEGE_TUITION_DATA:
-        return COLLEGE_TUITION_DATA[normalized_name]
-    
+        return _with_totals(COLLEGE_TUITION_DATA[normalized_name])
+
     # Try partial matching for common variations
     for key, data in COLLEGE_TUITION_DATA.items():
         if normalized_name in key or key in normalized_name:
-            return data
-    
+            return _with_totals(data)
+
     # Default data if no match found (generic private university costs)
-    return {
+    return _with_totals({
         "in_state_tuition": 0,
         "out_state_tuition": 0,
         "fees": 0,
@@ -425,7 +448,7 @@ def get_tuition_data_for_college(college_name: str) -> dict:
         "total_in_state": 0,
         "total_out_state": 0,
         "is_private": True
-    }
+    })
 
 def test_tuition_data():
     """Test the tuition data with some colleges"""
@@ -436,13 +459,13 @@ def test_tuition_data():
         "Stanford University",
         "University of California-Berkeley"
     ]
-    
+
     print("Testing Hardcoded Tuition Data...")
     print("=" * 60)
-    
+
     for college in test_colleges:
         data = get_tuition_data_for_college(college)
-        
+
         print(f"\n{college}:")
         print(f"  In-State Tuition: ${data['in_state_tuition']:,}")
         print(f"  Out-of-State Tuition: ${data['out_state_tuition']:,}")

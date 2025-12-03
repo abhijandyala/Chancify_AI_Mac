@@ -39,10 +39,10 @@ export default function HomePage() {
   
   const [profile, setProfile] = useState({
     // Academic metrics
-    gpa_unweighted: '',
-    gpa_weighted: '',
-    sat: '',
-    act: '',
+    gpa_unweighted: '3.85',
+    gpa_weighted: '4.25',
+    sat: '1450',
+    act: '32',
     
     // Course rigor and class info
     rigor: '5',

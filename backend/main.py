@@ -6,29 +6,103 @@ FastAPI application for college admissions probability calculations
 import os
 import logging
 import time
-import numpy as np
-import pandas as pd
 from typing import Dict, Any
 from fastapi import FastAPI, Request
 from starlette.responses import Response
-# CORSMiddleware import removed - using ONLY custom middleware
-from config import settings
-from database import create_tables
-from data.real_ipeds_major_mapping import get_colleges_for_major, get_major_strength_score, get_major_relevance_info
-from data.real_college_suggestions import real_college_suggestions
-from data.college_names_mapping import college_names_mapping
-from data.college_nickname_mapper import nickname_mapper
-from data.college_subject_emphasis import college_subject_emphasis
-from data.tuition_state_service import tuition_state_service
-from data.college_tuition_service import college_tuition_service
-from data.improvement_analysis_service import improvement_analysis_service
 
-# Configure logging
+# Configure logging FIRST
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+logger.info("=== Chancify AI Backend Starting ===")
+
+# Import numpy/pandas with error handling
+try:
+    import numpy as np
+    import pandas as pd
+    logger.info("✓ numpy/pandas imported")
+except ImportError as e:
+    logger.error(f"Failed to import numpy/pandas: {e}")
+    np = None
+    pd = None
+
+# Import config with error handling
+try:
+    from config import settings
+    logger.info("✓ config imported")
+except ImportError as e:
+    logger.error(f"Failed to import config: {e}")
+    settings = None
+
+# Import database with error handling
+try:
+    from database import create_tables
+    logger.info("✓ database imported")
+except ImportError as e:
+    logger.error(f"Failed to import database: {e}")
+    def create_tables(): pass
+
+# Import data modules with error handling - these are optional
+real_college_suggestions = None
+college_names_mapping = {}
+nickname_mapper = None
+college_subject_emphasis = {}
+tuition_state_service = None
+college_tuition_service = None
+improvement_analysis_service = None
+get_colleges_for_major = None
+get_major_strength_score = None
+get_major_relevance_info = None
+
+try:
+    from data.real_ipeds_major_mapping import get_colleges_for_major, get_major_strength_score, get_major_relevance_info
+    logger.info("✓ real_ipeds_major_mapping imported")
+except Exception as e:
+    logger.warning(f"Failed to import real_ipeds_major_mapping: {e}")
+
+try:
+    from data.real_college_suggestions import real_college_suggestions
+    logger.info("✓ real_college_suggestions imported")
+except Exception as e:
+    logger.warning(f"Failed to import real_college_suggestions: {e}")
+
+try:
+    from data.college_names_mapping import college_names_mapping
+    logger.info("✓ college_names_mapping imported")
+except Exception as e:
+    logger.warning(f"Failed to import college_names_mapping: {e}")
+
+try:
+    from data.college_nickname_mapper import nickname_mapper
+    logger.info("✓ nickname_mapper imported")
+except Exception as e:
+    logger.warning(f"Failed to import nickname_mapper: {e}")
+
+try:
+    from data.college_subject_emphasis import college_subject_emphasis
+    logger.info("✓ college_subject_emphasis imported")
+except Exception as e:
+    logger.warning(f"Failed to import college_subject_emphasis: {e}")
+
+try:
+    from data.tuition_state_service import tuition_state_service
+    logger.info("✓ tuition_state_service imported")
+except Exception as e:
+    logger.warning(f"Failed to import tuition_state_service: {e}")
+
+try:
+    from data.college_tuition_service import college_tuition_service
+    logger.info("✓ college_tuition_service imported")
+except Exception as e:
+    logger.warning(f"Failed to import college_tuition_service: {e}")
+
+try:
+    from data.improvement_analysis_service import improvement_analysis_service
+    logger.info("✓ improvement_analysis_service imported")
+except Exception as e:
+    logger.warning(f"Failed to import improvement_analysis_service: {e}")
 
 # Simple in-memory cache for college suggestions
 suggestion_cache = {}
@@ -56,7 +130,12 @@ def safe_float(value, default=0.0):
 
     # Check for NaN and infinity - only after conversion to float
     try:
-        if pd.isna(float_val) or np.isinf(float_val):
+        if pd is not None and pd.isna(float_val):
+            return default
+        if np is not None and np.isinf(float_val):
+            return default
+        # Fallback check if numpy/pandas not available
+        if float_val != float_val:  # NaN check
             return default
     except (TypeError, ValueError):
         return default
@@ -101,6 +180,12 @@ app = FastAPI(
     redoc_url="/api/redoc"
 )
 
+# IMMEDIATE PING - defined FIRST to prove app is running
+@app.get("/ping")
+async def ping():
+    """Simple ping endpoint - responds immediately without any dependencies"""
+    return {"status": "pong", "message": "Chancify AI Backend is alive!"}
+
 """
 Strict CORS configuration.
 Important: We cannot use allow_origins=["*"] together with allow_credentials=True,
@@ -109,12 +194,14 @@ if Access-Control-Allow-Origin is "*".
 
 We explicitly list the frontends that are allowed to call the backend.
 """
+# Build allowed origins list safely
+_frontend_url = getattr(settings, 'frontend_url', None) if settings else None
 allowed_origins = list({
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "https://chancifyaipresidential.up.railway.app",  # Production frontend
-    settings.frontend_url,  # From environment variable
+    _frontend_url or "http://localhost:3000",  # From environment variable with fallback
 })
 
 allowed_origin_suffixes = (

@@ -14,7 +14,7 @@ export default function SimpleGoogleOAuth() {
     // Use real Google OAuth flow like ROX
     // This redirects to the official Google account selection page
     // Using the correct Google Client ID as specified
-    const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '117818010137-4fmntjdknmm16c9eef296l96isok6620.apps.googleusercontent.com'
+    const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com'
     
     // Determine redirect URI based on current environment
     // For local development, use localhost; for production, use Railway
@@ -22,7 +22,7 @@ export default function SimpleGoogleOAuth() {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       REDIRECT_URI = `${window.location.origin}/api/auth/callback/google`
     } else {
-      REDIRECT_URI = 'https://chancifyai.up.railway.app/api/auth/callback/google'
+      REDIRECT_URI = 'https://chancifyaipresidential.up.railway.app/api/auth/callback/google'
     }
     
     const SCOPE = 'email profile'

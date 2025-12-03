@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 class RailwayMonitor:
     def __init__(self):
         self.project_name = "Chancify_AI"
-        self.service_name = "chancifyai.up.railway.app"
+        self.service_name = "chancifyaipresidential.up.railway.app"
         self.error_patterns = [
             "Failed to compile",
             "Type error:",

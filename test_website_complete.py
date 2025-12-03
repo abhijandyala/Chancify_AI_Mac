@@ -51,7 +51,7 @@ def main():
     
     ngrok_headers = {'ngrok-skip-browser-warning': 'true'}
     cors_headers = {
-        'Origin': 'https://chancifyai.up.railway.app',
+        'Origin': 'https://chancifyaipresidential.up.railway.app',
         'ngrok-skip-browser-warning': 'true'
     }
     

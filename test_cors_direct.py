@@ -4,7 +4,7 @@ import sys
 
 def test_cors():
     base_url = "http://localhost:8000"
-    origin = "https://chancifyai.up.railway.app"
+    origin = "https://chancifyaipresidential.up.railway.app"
     
     print("=" * 60)
     print("Testing CORS Configuration")

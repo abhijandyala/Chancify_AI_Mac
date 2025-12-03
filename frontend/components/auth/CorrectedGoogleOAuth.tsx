@@ -7,7 +7,7 @@ export default function CorrectedGoogleOAuth() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const GOOGLE_CLIENT_ID = '117818010137-4fmntjdknmm16c9eef296196isok6620.apps.googleusercontent.com'
+  const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com'
   const REDIRECT_URI = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/auth/callback/google`
   const SCOPE = 'openid email profile'
   const AUTH_URL = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPE)}&access_type=offline&prompt=select_account`

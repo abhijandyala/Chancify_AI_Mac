@@ -36,7 +36,7 @@ If you haven't already created a Google OAuth app:
 4. Add these environment variables:
 
 ```
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=117818010137-4fmntjdknmm16c9eef296l96isok6620.apps.googleusercontent.com
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_actual_client_secret_here
 ```
 

@@ -13,7 +13,7 @@ export default function RealGoogleOAuth() {
     
     try {
       // Real Google OAuth flow - this will show the actual Google popup
-      const GOOGLE_CLIENT_ID = '117818010137-4fmntjdknmm16c9eef296196isok6620.apps.googleusercontent.com'
+      const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com'
       const REDIRECT_URI = `${window.location.origin}/api/auth/callback/google`
       const SCOPE = 'openid email profile'
       

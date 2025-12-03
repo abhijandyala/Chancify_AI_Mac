@@ -5,7 +5,7 @@ import time
 
 def test_cors():
     base_url = "http://localhost:8000"
-    origin = "https://chancifyai.up.railway.app"
+    origin = "https://chancifyaipresidential.up.railway.app"
     
     print("=" * 70)
     print("BACKEND CORS VERIFICATION TEST")

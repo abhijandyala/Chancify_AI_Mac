@@ -46,6 +46,12 @@ Chancify_AI/
 - **ML/AI**: scikit-learn, pandas, numpy
 - **Deployment**: Docker, Vercel (frontend), AWS/Railway (backend)
 
+## ML Model Artifacts
+
+The production ML models live under `backend/data/models/` and are versioned in compressed form (`*.joblib.gz`) to keep the repository size reasonable.  
+During Docker builds the compressed files are automatically decompressed into the expected `.joblib` paths.  
+For local development you can extract them with `gunzip -k backend/data/models/<model>.joblib.gz`.
+
 ## Development Phases
 
 ### Phase 1: Foundation (Current)

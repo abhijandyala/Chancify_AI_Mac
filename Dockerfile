@@ -26,6 +26,15 @@ COPY backend/data/raw /app/backend/data/raw
 COPY backend/data/models /app/backend/data/models
 COPY backend/models /app/backend/models
 
+# Decompress large ML artifacts if only compressed versions are present
+RUN set -e \
+ && if [ -f /app/backend/data/models/ensemble.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/ensemble.joblib.gz > /app/backend/data/models/ensemble.joblib; \
+    fi \
+ && if [ -f /app/backend/data/models/random_forest.joblib.gz ]; then \
+      gunzip -c /app/backend/data/models/random_forest.joblib.gz > /app/backend/data/models/random_forest.joblib; \
+    fi
+
 # Copy data files that are outside the backend folder
 # These files are referenced by data services using relative paths
 COPY Tuition_InOut_2023.csv /app/Tuition_InOut_2023.csv
@@ -34,7 +43,8 @@ COPY therealdatabase /app/therealdatabase
 
 # Verify critical files exist (build will fail if not)
 RUN ls -la /app/backend/data/raw/real_colleges_integrated.csv && \
-    ls -la /app/backend/data/models/ensemble.joblib
+    ls -la /app/backend/data/models/ensemble.joblib && \
+    ls -la /app/backend/data/models/random_forest.joblib
 
 # Set environment variables
 ENV PYTHONPATH=/app/backend:/app

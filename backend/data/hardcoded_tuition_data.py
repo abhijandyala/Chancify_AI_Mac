@@ -416,14 +416,14 @@ def get_tuition_data_for_college(college_name: str) -> dict:
     
     # Default data if no match found (generic private university costs)
     return {
-        "in_state_tuition": 50000,
-        "out_state_tuition": 50000,
-        "fees": 1000,
-        "room_board": 15000,
-        "books": 1000,
-        "other_expenses": 2000,
-        "total_in_state": 67000,
-        "total_out_state": 67000,
+        "in_state_tuition": 0,
+        "out_state_tuition": 0,
+        "fees": 0,
+        "room_board": 0,
+        "books": 0,
+        "other_expenses": 0,
+        "total_in_state": 0,
+        "total_out_state": 0,
         "is_private": True
     }
 

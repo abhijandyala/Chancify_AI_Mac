@@ -37,8 +37,8 @@ class Settings(_BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
-    # CORS
-    frontend_url: str = "http://localhost:3000"
+    # CORS - Get from environment variable
+    frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # ML Model Path
     ml_model_path: str = "../models/trained/"

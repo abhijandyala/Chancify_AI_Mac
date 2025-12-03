@@ -13,33 +13,41 @@ logger = logging.getLogger(__name__)
 
 # Supabase client for authentication
 supabase: Optional[Client] = None
-try:
-    supabase = create_client(
-        settings.supabase_url,
-        settings.supabase_service_key  # Use service key for admin operations
-    )
-    logger.info("Supabase client initialized successfully")
-except Exception as e:
-    logger.warning(f"Failed to initialize Supabase client: {e}")
-    supabase = None
+if settings.supabase_url and settings.supabase_service_key:
+    try:
+        supabase = create_client(
+            settings.supabase_url,
+            settings.supabase_service_key  # Use service key for admin operations
+        )
+        logger.info("Supabase client initialized successfully")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Supabase client: {e}")
+        supabase = None
+else:
+    logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set - Supabase features will be disabled")
 
 # SQLAlchemy engine and session
 database_url = settings.database_url
+engine = None
+SessionLocal = None
 
-try:
-    engine = create_engine(
-        database_url,
-        echo=False,  # Disable SQL query logging in production
-        pool_pre_ping=True,  # Verify connections before use
-        pool_recycle=300,  # Recycle connections every 5 minutes
-        connect_args={"connect_timeout": 10}  # Add connection timeout
-    )
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    logger.info("Database engine created successfully")
-except Exception as e:
-    logger.error(f"Failed to create database engine: {e}")
-    engine = None
-    SessionLocal = None
+if database_url and database_url.strip() and database_url != "":
+    try:
+        engine = create_engine(
+            database_url,
+            echo=False,  # Disable SQL query logging in production
+            pool_pre_ping=True,  # Verify connections before use
+            pool_recycle=300,  # Recycle connections every 5 minutes
+            connect_args={"connect_timeout": 10}  # Add connection timeout
+        )
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        logger.info("Database engine created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database engine: {e}")
+        engine = None
+        SessionLocal = None
+else:
+    logger.warning("DATABASE_URL not set - database features will be disabled")
 
 
 def get_db() -> Generator[Optional[Session], None, None]:

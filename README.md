@@ -82,3 +82,4 @@ Chancify_AI/
 
 MIT
 
+<!-- Deployment trigger: ensures both Railway services rebuild -->

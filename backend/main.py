@@ -107,14 +107,14 @@ Important: We cannot use allow_origins=["*"] together with allow_credentials=Tru
 because browsers will reject credentialed requests (e.g., Authorization headers)
 if Access-Control-Allow-Origin is "*".
 
-We explicitly list the frontends that are allowed to call the ngrok backend.
+We explicitly list the frontends that are allowed to call the backend.
 """
 allowed_origins = list({
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
-    "https://chancifyai.up.railway.app",
-    settings.frontend_url,
+    "https://chancifyaipresidential.up.railway.app",  # Production frontend
+    settings.frontend_url,  # From environment variable
 })
 
 allowed_origin_suffixes = (

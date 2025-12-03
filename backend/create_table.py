@@ -10,8 +10,12 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 def create_users_table():
     """Create the users table in Railway Postgres."""
 
-    # Railway Postgres connection string
-    database_url = 'postgresql://postgres:aLrUyIYMFZrWalrETCKLmhHN1TKCyfvU@shuttle.proxy.rlwy.net:22500/railway'
+    # Get database URL from environment variable
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print("❌ DATABASE_URL environment variable not set!")
+        print("Set it in your .env file or Railway dashboard")
+        return
 
     print("Connecting to Railway Postgres...")
 

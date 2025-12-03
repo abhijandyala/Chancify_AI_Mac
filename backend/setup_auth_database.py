@@ -11,11 +11,12 @@ from database.models import Base, User, UserProfile
 def setup_database():
     """Create all database tables."""
     
-    # Get database URL from environment or use the Railway URL
-    database_url = os.getenv(
-        'DATABASE_URL', 
-        'postgresql://postgres:aLrUyIYMFZrWalrETCKLmhHN1TKCyfvU@shuttle.proxy.rlwy.net:22500/railway'
-    )
+    # Get database URL from environment variable (required)
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print("❌ DATABASE_URL environment variable not set!")
+        print("Set it in your .env file or Railway dashboard")
+        sys.exit(1)
     
     print(f"Connecting to database...")
     

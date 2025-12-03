@@ -1,8 +1,9 @@
 export type HeaderMap = Record<string, string>
 
-// PRIMARY: Use ngrok URL for backend (user's requirement)
+// PRIMARY: Railway backend URL (production)
 // FALLBACK: localhost for local development only
-const NGROK_API_URL = 'https://unsmug-untensely-elroy.ngrok-free.dev'
+// TODO: Update RAILWAY_API_URL after backend deployment
+const RAILWAY_API_URL = 'https://YOUR-BACKEND-SERVICE.up.railway.app'
 const DEFAULT_API_URL = 'http://localhost:8000'
 
 declare global {
@@ -46,22 +47,24 @@ function resolveRuntimeOverride(): string | undefined {
 export function getApiBaseUrl(): string {
   // Priority order:
   // 1. Runtime override (window.__CHANCIFY_API_URL__ or localStorage)
-  // 2. Environment variable (NEXT_PUBLIC_API_URL)
-  // 3. Ngrok URL (PRIMARY - user's requirement)
-  // 4. Localhost (FALLBACK only)
-  return resolveRuntimeOverride() || resolveEnvApiUrl() || NGROK_API_URL || DEFAULT_API_URL
+  // 2. Environment variable (NEXT_PUBLIC_API_URL) - SET THIS IN RAILWAY!
+  // 3. Railway URL (production)
+  // 4. Localhost (local development only)
+  return resolveRuntimeOverride() || resolveEnvApiUrl() || RAILWAY_API_URL || DEFAULT_API_URL
 }
 
 export function withNgrokHeaders(
   baseUrl: string,
   headers: HeaderMap = {}
 ): HeaderMap {
+  // Add ngrok headers only if using ngrok (for local development)
   if (baseUrl.includes('ngrok')) {
     return {
       ...headers,
       'ngrok-skip-browser-warning': 'true',
     }
   }
+  // Railway and other hosts don't need special headers
   return headers
 }
 

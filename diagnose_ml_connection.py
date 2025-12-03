@@ -135,7 +135,7 @@ def test_ngrok_endpoint():
         "volunteer_work": "6.0"
     }
     
-    ngrok_url = "https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend"
+    backend_url = "https://backendchancifyai.up.railway.app/api/predict/frontend"
     
     try:
         response = requests.post(
@@ -188,7 +188,7 @@ def check_frontend_config():
     content = config_file.read_text()
     
     # Check for ngrok URL
-    if "unsmug-untensely-elroy.ngrok-free.dev" in content:
+    if "backendchancifyai.up.railway.app" in content:
         print("✅ Ngrok URL found in config")
     else:
         print("❌ Ngrok URL NOT found in config")

@@ -107,10 +107,10 @@ def main():
     print("-" * 40)
     
     ngrok_tests = [
-        ("https://unsmug-untensely-elroy.ngrok-free.dev/api/health", "GET", None, ngrok_headers, "Health Check"),
-        ("https://unsmug-untensely-elroy.ngrok-free.dev/api/suggest/colleges", "POST", test_profile, ngrok_headers, "College Suggestions"),
-        ("https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend", "POST", prediction_data, ngrok_headers, "Prediction"),
-        ("https://unsmug-untensely-elroy.ngrok-free.dev/api/search/colleges?q=Harvard&limit=5", "GET", None, ngrok_headers, "College Search"),
+        ("https://backendchancifyai.up.railway.app/api/health", "GET", None, ngrok_headers, "Health Check"),
+        ("https://backendchancifyai.up.railway.app/api/suggest/colleges", "POST", test_profile, ngrok_headers, "College Suggestions"),
+        ("https://backendchancifyai.up.railway.app/api/predict/frontend", "POST", prediction_data, ngrok_headers, "Prediction"),
+        ("https://backendchancifyai.up.railway.app/api/search/colleges?q=Harvard&limit=5", "GET", None, ngrok_headers, "College Search"),
     ]
     
     ngrok_results = []
@@ -130,7 +130,7 @@ def main():
         test_data = test_profile.copy()
         test_data["major"] = major
         result = test_endpoint(
-            "https://unsmug-untensely-elroy.ngrok-free.dev/api/suggest/colleges",
+            "https://backendchancifyai.up.railway.app/api/suggest/colleges",
             "POST", test_data, ngrok_headers, f"Suggestions for {major}"
         )
         major_results.append(result)
@@ -152,7 +152,7 @@ def main():
         test_data = test_profile.copy()
         test_data.update(profile_data)
         result = test_endpoint(
-            "https://unsmug-untensely-elroy.ngrok-free.dev/api/suggest/colleges",
+            "https://backendchancifyai.up.railway.app/api/suggest/colleges",
             "POST", test_data, ngrok_headers, f"Suggestions for {profile_name}"
         )
         profile_results.append(result)

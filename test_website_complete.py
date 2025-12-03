@@ -3,7 +3,7 @@ import requests
 import time
 import sys
 
-NGROK_URL = "https://unsmug-untensely-elroy.ngrok-free.dev"
+BACKEND_URL = "https://backendchancifyai.up.railway.app"
 LOCAL_URL = "http://localhost:8000"
 
 def test_endpoint(name, url, headers=None, method="GET", data=None):

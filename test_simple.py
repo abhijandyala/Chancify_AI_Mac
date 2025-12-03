@@ -9,7 +9,7 @@ import json
 def test_simple_backend():
     """Test if backend is responding"""
     
-    url = "https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend"
+    url = "https://backendchancifyai.up.railway.app/api/predict/frontend"
     headers = {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true'

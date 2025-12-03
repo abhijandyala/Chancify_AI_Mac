@@ -81,10 +81,10 @@ def test_api_endpoint():
     print()
     
     # Test 2: Via ngrok
-    print("2. Testing via NGROK (https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend)...")
+    print("2. Testing via Railway (https://backendchancifyai.up.railway.app/api/predict/frontend)...")
     try:
         response = requests.post(
-            "https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend",
+            "https://backendchancifyai.up.railway.app/api/predict/frontend",
             json=test_request,
             headers={
                 "Content-Type": "application/json",

@@ -165,7 +165,7 @@ def test_api_endpoints():
     # Test the suggestions endpoint
     try:
         response = requests.post(
-            'https://unsmug-untensely-elroy.ngrok-free.dev/api/suggest/colleges',
+            'https://backendchancifyai.up.railway.app/api/suggest/colleges',
             headers={'ngrok-skip-browser-warning': 'true'},
             json={
                 'major': 'Computer Science',

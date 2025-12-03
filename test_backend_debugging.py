@@ -33,7 +33,7 @@ def test_backend_with_debug():
     print(f"Request data: {json.dumps(test_data, indent=2)}")
     
     # Test the endpoint
-    url = "https://unsmug-untensely-elroy.ngrok-free.dev/api/predict/frontend"
+    url = "https://backendchancifyai.up.railway.app/api/predict/frontend"
     headers = {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true'

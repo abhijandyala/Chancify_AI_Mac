@@ -604,10 +604,44 @@ export default function CalculationsPage() {
     { label: 'Rejection', pct: clampPct(d.outcome.reject) },
   ];
 
+  const baseInStateTuition = d.costs?.inStateTuition ?? 0;
+  const baseOutStateTuition = d.costs?.outStateTuition ?? baseInStateTuition;
+
+  const displayInStateTuition = zipcodeTuitionData?.success
+    ? zipcodeTuitionData.in_state_tuition ??
+      (zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseInStateTuition)
+    : baseInStateTuition;
+
+  const displayOutStateTuition = zipcodeTuitionData?.success
+    ? zipcodeTuitionData.out_state_tuition ??
+      (!zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseOutStateTuition)
+    : baseOutStateTuition;
+
   const tuitionBars = [
-    ...(d.costs?.inStateTuition ? [{ label: 'In-State Tuition', amount: d.costs.inStateTuition }] : []),
-    ...(d.costs?.outStateTuition ? [{ label: 'Out-of-State Tuition', amount: d.costs.outStateTuition }] : []),
+    ...(displayInStateTuition
+      ? [{ label: 'In-State Tuition', amount: displayInStateTuition }]
+      : []),
+    ...(displayOutStateTuition
+      ? [{ label: 'Out-of-State Tuition', amount: displayOutStateTuition }]
+      : []),
   ];
+
+  const feesAmount = d.costs?.fees ?? 1000;
+  const roomBoardAmount = d.costs?.roomBoard ?? 15000;
+  const booksAmount = d.costs?.books ?? 1000;
+  const otherAmount = d.costs?.other ?? 2000;
+
+  const tuitionLineAmount = zipcodeTuitionData?.success
+    ? zipcodeTuitionData.tuition ??
+      (zipcodeTuitionData.is_in_state ? displayInStateTuition : displayOutStateTuition || displayInStateTuition)
+    : (zipcodeTuitionData?.is_in_state ? displayInStateTuition : displayOutStateTuition || displayInStateTuition);
+
+  const totalCost =
+    tuitionLineAmount +
+    feesAmount +
+    roomBoardAmount +
+    booksAmount +
+    otherAmount;
 
   // Comprehensive improvement areas - NO FALLBACK, force API data
   const improvementAreas = improvementData?.improvements || [];
@@ -800,37 +834,29 @@ export default function CalculationsPage() {
                           )}
                         </td>
                         <td className="p-3 text-right text-white">
-                          <Money n={
-                            zipcodeTuitionData && zipcodeTuitionData.success 
-                              ? zipcodeTuitionData.tuition 
-                              : (d.costs?.inStateTuition ?? d.costs?.outStateTuition ?? 0)
-                          } />
+                          <Money n={tuitionLineAmount} />
                         </td>
                       </tr>
                       <tr>
                         <td className="p-3 text-white">Fees</td>
-                        <td className="p-3 text-right text-white"><Money n={d.costs?.fees ?? 1000} /></td>
+                        <td className="p-3 text-right text-white"><Money n={feesAmount} /></td>
                       </tr>
                       <tr>
                         <td className="p-3 text-white">Room & Board</td>
-                        <td className="p-3 text-right text-white"><Money n={d.costs?.roomBoard ?? 15000} /></td>
+                        <td className="p-3 text-right text-white"><Money n={roomBoardAmount} /></td>
                       </tr>
                       <tr>
                         <td className="p-3 text-white">Books</td>
-                        <td className="p-3 text-right text-white"><Money n={d.costs?.books ?? 1000} /></td>
+                        <td className="p-3 text-right text-white"><Money n={booksAmount} /></td>
                       </tr>
                       <tr>
                         <td className="p-3 text-white">Other</td>
-                        <td className="p-3 text-right text-white"><Money n={d.costs?.other ?? 2000} /></td>
+                        <td className="p-3 text-right text-white"><Money n={otherAmount} /></td>
                       </tr>
                       <tr className="border-t border-ROX_GOLD/30 bg-ROX_DARK_GRAY/40">
                         <td className="p-3 text-white font-semibold">Total</td>
                         <td className="p-3 text-right text-white font-semibold">
-                          <Money n={
-                            zipcodeTuitionData && zipcodeTuitionData.success 
-                              ? zipcodeTuitionData.tuition + 20000  // Add estimated room/board/fees
-                              : (d.costs?.inStateTuition ?? d.costs?.outStateTuition ?? 0)
-                          } />
+                          <Money n={totalCost} />
                         </td>
                       </tr>
                     </tbody>

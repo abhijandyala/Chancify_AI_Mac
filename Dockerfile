@@ -20,6 +20,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy backend code
 COPY backend /app/backend
 
+# Copy data files that are outside the backend folder
+# These files are referenced by data services using relative paths
+COPY Tuition_InOut_2023.csv /app/Tuition_InOut_2023.csv
+COPY College_State_Zip.csv /app/College_State_Zip.csv
+COPY therealdatabase /app/therealdatabase
+
 # Set environment variables
 ENV PYTHONPATH=/app/backend:/app
 ENV ENVIRONMENT=production

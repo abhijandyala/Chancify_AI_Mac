@@ -50,14 +50,13 @@ backend/test_*.py
 backend/generate_*.py
 backend/start_server.py
 
-# Backend - exclude large data files (not needed at runtime)
-backend/data/raw/
-backend/data/processed/
-backend/models/*.pkl
-backend/models/*.txt
+# Backend - exclude processed reddit data (not needed at runtime)
+backend/data/processed/reddit/
 
-# Keep ML models for predictions
-!backend/data/models/
+# KEEP THESE - Required for runtime:
+# - backend/data/models/ - ML ensemble models (joblib files)
+# - backend/data/raw/real_colleges_integrated.csv - college data
+# - backend/models/ - ultimate ensemble models (pkl files)
 
 # Git
 .git/

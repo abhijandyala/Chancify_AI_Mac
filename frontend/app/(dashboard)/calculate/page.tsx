@@ -918,7 +918,7 @@ export default function CalculationsPage() {
         </div>
 
         {/* Areas to Improve - Professional Design - Full Width */}
-        <div className="-mx-4 md:-mx-8 px-6">
+        <div className="mt-12 -mx-4 md:-mx-8 px-6">
           <motion.div 
             className="relative bg-black border border-yellow-500/30 rounded-3xl p-8 backdrop-blur-xl overflow-hidden group w-full shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_20px_60px_rgba(0,0,0,0.7)]"
             initial={{ opacity: 0, y: 20 }}

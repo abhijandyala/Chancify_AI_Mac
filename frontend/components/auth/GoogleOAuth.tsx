@@ -35,7 +35,7 @@ export default function GoogleOAuth() {
 
       try {
         window.google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com',
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
           callback: handleCredentialResponse,
           auto_select: false,
           cancel_on_tap_outside: true,
@@ -95,7 +95,7 @@ export default function GoogleOAuth() {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             // Fallback to popup
             const popup = window.open(
-              `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com'}&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=code&scope=openid%20email%20profile`,
+              `https://accounts.google.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=code&scope=openid%20email%20profile`,
               'google-auth',
               'width=500,height=600,scrollbars=yes,resizable=yes'
             )

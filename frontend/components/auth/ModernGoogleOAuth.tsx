@@ -39,7 +39,7 @@ export default function ModernGoogleOAuth() {
     if (!window.google) return
 
     window.google.accounts.id.initialize({
-      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '271825853515-ji8bgnlsur2tel6p7gsgn7vn76drdnui.apps.googleusercontent.com',
+      client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
       callback: handleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true

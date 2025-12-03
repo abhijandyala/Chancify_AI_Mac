@@ -39,17 +39,17 @@ export default function HomePage() {
   
   const [profile, setProfile] = useState({
     // Academic metrics
-    gpa_unweighted: '3.85',
-    gpa_weighted: '4.25',
-    sat: '1450',
-    act: '32',
+    gpa_unweighted: '',
+    gpa_weighted: '',
+    sat: '',
+    act: '',
     
     // Course rigor and class info
     rigor: '5',
-    ap_count: '5',
-    honors_count: '8',
-    class_rank_percentile: '15',
-    class_size: '300',
+    ap_count: '',
+    honors_count: '',
+    class_rank_percentile: '',
+    class_size: '',
     
     // Extracurriculars and activities
     extracurricular_depth: '5',

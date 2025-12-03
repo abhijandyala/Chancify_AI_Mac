@@ -367,6 +367,20 @@ class AdmissionPredictor:
         
         # Allow probabilities up to 98% for exceptional applicants
         final_prob = np.clip(final_prob, 0.02, 0.98)
+
+        # Acceptance-rate-aware calibration
+        acceptance_rate = getattr(college, "acceptance_rate", None)
+        if acceptance_rate is None:
+            acceptance_rate = 0.5  # reasonable default
+        acceptance_rate = float(np.clip(acceptance_rate, 0.02, 0.98))
+
+        # Blend with acceptance rate so hard constraints have weight
+        final_prob = (final_prob * 0.7) + (acceptance_rate * 0.3)
+
+        # Enforce dynamic caps relative to acceptance rate
+        max_allowed = min(0.98, acceptance_rate + 0.25)
+        min_allowed = max(0.02, acceptance_rate * 0.3)
+        final_prob = np.clip(final_prob, min_allowed, max_allowed)
         
         # Confidence interval (wider if ML is uncertain)
         ci_width = 0.15 * (1 - ml_confidence)  # Smaller CI when more confident

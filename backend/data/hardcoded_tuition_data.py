@@ -5,7 +5,12 @@ Real tuition data for colleges - can be updated with Excel file later
 """
 
 # Hardcoded tuition and cost data for different colleges
-COLLEGE_TUITION_DATA = {
+from pathlib import Path
+from typing import Any, Dict
+
+import pandas as pd
+
+COLLEGE_TUITION_DATA: Dict[str, Dict[str, Any]] = {
     # Carnegie Mellon University - Private university
     "carnegie mellon university": {
         "in_state_tuition": 61030,
@@ -331,6 +336,66 @@ COLLEGE_TUITION_DATA = {
         "is_private": True
     }
 }
+
+def _safe_number(value: Any, default: float) -> float:
+    """Convert value to float safely, falling back to default."""
+    try:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _load_csv_tuition_data() -> None:
+    """Bootstrap tuition dictionary with values from real_colleges_integrated.csv."""
+    csv_path = Path(__file__).resolve().parent / "raw" / "real_colleges_integrated.csv"
+    if not csv_path.exists():
+        return
+
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception:
+        return
+
+    for _, row in df.iterrows():
+        name = str(row.get("name", "")).strip().lower()
+        if not name:
+            continue
+
+        # Skip if already hardcoded (manual overrides stay authoritative)
+        if name in COLLEGE_TUITION_DATA:
+            continue
+
+        in_state = _safe_number(row.get("tuition_in_state_usd"), 20000.0)
+        out_state = _safe_number(row.get("tuition_out_of_state_usd"), in_state)
+
+        # Room & board breakdown is not in CSV; approximate using avg_net_price_usd if present
+        avg_net_price = _safe_number(row.get("avg_net_price_usd"), 0.0)
+        if avg_net_price and avg_net_price > in_state:
+            room_board_estimate = max(0.0, avg_net_price - in_state)
+        else:
+            room_board_estimate = 18000.0  # fallback
+
+        fees_estimate = 1000.0
+        books_estimate = 1200.0
+        other_estimate = 2000.0
+
+        COLLEGE_TUITION_DATA[name] = {
+            "in_state_tuition": round(in_state),
+            "out_state_tuition": round(out_state),
+            "fees": round(fees_estimate),
+            "room_board": round(room_board_estimate),
+            "books": round(books_estimate),
+            "other_expenses": round(other_estimate),
+            "total_in_state": round(in_state + fees_estimate + room_board_estimate + books_estimate + other_estimate),
+            "total_out_state": round(out_state + fees_estimate + room_board_estimate + books_estimate + other_estimate),
+            "is_private": str(row.get("control", "")).lower() != "public"
+        }
+
+
+# Load CSV data once at import so every college has entries
+_load_csv_tuition_data()
 
 def get_tuition_data_for_college(college_name: str) -> dict:
     """

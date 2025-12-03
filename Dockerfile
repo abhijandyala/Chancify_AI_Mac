@@ -7,6 +7,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file first for layer caching
@@ -16,20 +17,20 @@ COPY backend/requirements-essential.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code (filtered by .dockerignore)
+# Copy backend code
 COPY backend /app/backend
-COPY main.py /app/
-COPY pyproject.toml /app/
 
 # Set environment variables
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/backend:/app
 ENV ENVIRONMENT=production
+ENV PORT=8000
 
-# Expose port (Railway will set PORT env var)
+# Expose port
 EXPOSE 8000
 
-# Start the application
-# Note: Railway handles healthchecks externally, no need for Docker HEALTHCHECK
-# Use backend.main:app since main.py imports from backend.main
-CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --log-level info
+# Set working directory to backend for correct module resolution
+WORKDIR /app/backend
 
+# Start the application using shell form to expand $PORT
+# Railway sets PORT environment variable at runtime
+CMD python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info

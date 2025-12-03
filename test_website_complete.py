@@ -3,7 +3,7 @@ import requests
 import time
 import sys
 
-BACKEND_URL = "https://backendchancifyai.up.railway.app"
+BACKEND_URL = "https://chancifybackendnonpostrges.up.railway.app"
 LOCAL_URL = "http://localhost:8000"
 
 def test_endpoint(name, url, headers=None, method="GET", data=None):

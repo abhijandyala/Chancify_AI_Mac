@@ -2,7 +2,7 @@ export type HeaderMap = Record<string, string>
 
 // PRIMARY: Railway backend URL (production)
 // FALLBACK: localhost for local development only
-const RAILWAY_API_URL = 'https://backendchancifyai.up.railway.app'
+const RAILWAY_API_URL = 'https://chancifybackendnonpostrges.up.railway.app'
 const DEFAULT_API_URL = 'http://localhost:8000'
 
 declare global {

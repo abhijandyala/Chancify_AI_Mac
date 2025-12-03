@@ -27,7 +27,7 @@ echo Backend: http://localhost:8000
 echo Ngrok: Check the ngrok window for the public URL
 echo.
 echo Wait 10 seconds for services to start, then test:
-echo https://backendchancifyai.up.railway.app/api/auth/me
+echo https://chancifybackendnonpostrges.up.railway.app/api/auth/me
 echo.
 echo Press any key to exit this window (services will keep running)...
 pause >nul

@@ -165,7 +165,7 @@ def test_api_endpoints():
     # Test the suggestions endpoint
     try:
         response = requests.post(
-            'https://backendchancifyai.up.railway.app/api/suggest/colleges',
+            'https://chancifybackendnonpostrges.up.railway.app/api/suggest/colleges',
             headers={'ngrok-skip-browser-warning': 'true'},
             json={
                 'major': 'Computer Science',

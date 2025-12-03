@@ -37,7 +37,7 @@ def test_auth_endpoint():
     print("\n2. Testing via ngrok WITHOUT authentication...")
     try:
         response = requests.get(
-            'https://backendchancifyai.up.railway.app/api/auth/me',
+            'https://chancifybackendnonpostrges.up.railway.app/api/auth/me',
             headers={'ngrok-skip-browser-warning': 'true'},
             timeout=10
         )

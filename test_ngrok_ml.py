@@ -35,7 +35,7 @@ def test_ngrok_ml():
         "volunteer_work": "6.0"
     }
     
-    backend_url = "https://backendchancifyai.up.railway.app/api/predict/frontend"
+    backend_url = "https://chancifybackendnonpostrges.up.railway.app/api/predict/frontend"
     
     print(f"Testing: {ngrok_url}")
     print()

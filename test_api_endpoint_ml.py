@@ -81,10 +81,10 @@ def test_api_endpoint():
     print()
     
     # Test 2: Via ngrok
-    print("2. Testing via Railway (https://backendchancifyai.up.railway.app/api/predict/frontend)...")
+    print("2. Testing via Railway (https://chancifybackendnonpostrges.up.railway.app/api/predict/frontend)...")
     try:
         response = requests.post(
-            "https://backendchancifyai.up.railway.app/api/predict/frontend",
+            "https://chancifybackendnonpostrges.up.railway.app/api/predict/frontend",
             json=test_request,
             headers={
                 "Content-Type": "application/json",

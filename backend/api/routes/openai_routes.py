@@ -75,3 +75,28 @@ async def get_college_info_by_name(college_name: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error fetching college info for {college_name}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch college information: {str(e)}")
+
+@router.post("/parse-application")
+async def parse_application_document(request: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parse a college application document using OpenAI to extract structured data.
+    This is used as a fallback when frontend regex parsing misses important information.
+    
+    Args:
+        request: Dictionary with "document_text" key containing the application text
+        
+    Returns:
+        Dictionary with extracted fields and miscellaneous notes
+    """
+    try:
+        document_text = request.get("document_text", "")
+        if not document_text:
+            raise HTTPException(status_code=400, detail="document_text is required")
+        
+        result = await college_info_service.parse_application_document(document_text)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error parsing application document: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse application document: {str(e)}")

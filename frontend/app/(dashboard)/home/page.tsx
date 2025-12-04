@@ -239,7 +239,7 @@ export default function HomePage() {
         return
       }
 
-      const parsed = parseApplicationData(text)
+      const parsed = await parseApplicationData(text)
       const blankUpdates: Partial<Record<ProfileField, string>> = {}
       const conflictUpdates: Partial<Record<ProfileField, string>> = {}
       const keptFields = new Set<ProfileField>()

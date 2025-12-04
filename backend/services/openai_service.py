@@ -339,5 +339,118 @@ class CollegeInfoService:
             results[college_name] = await self.get_college_info(college_name)
         return results
 
+    async def parse_application_document(self, document_text: str) -> Dict[str, Any]:
+        """
+        Parse a college application document to extract structured data using OpenAI.
+        This is used as a fallback when regex parsing misses important information.
+
+        Args:
+            document_text: The full text content of the application document
+
+        Returns:
+            Dictionary with extracted fields and miscellaneous notes
+        """
+        if not self.client:
+            logger.warning("OpenAI client not available - cannot parse application document")
+            return {
+                "success": False,
+                "error": "OpenAI API key not configured",
+                "updates": {},
+                "misc": []
+            }
+
+        try:
+            # Limit text length to avoid token limits (keep first 8000 chars which is usually enough)
+            truncated_text = document_text[:8000] if len(document_text) > 8000 else document_text
+
+            prompt = f"""Extract structured data from this college application document. Return ONLY valid JSON, no other text.
+
+Document text:
+{truncated_text}
+
+Extract the following information and return as JSON:
+{{
+    "gpa_weighted": "weighted GPA as number string (e.g., '4.5') or null if not found",
+    "gpa_unweighted": "unweighted GPA as number string (e.g., '3.9') or null if not found",
+    "sat": "SAT composite score as number string (e.g., '1470') or null if not found",
+    "act": "ACT composite score as number string (e.g., '33') or null if not found",
+    "ap_count": "number of AP courses as string or null",
+    "honors_count": "number of Honors courses as string or null",
+    "class_rank_percentile": "class rank percentile as number string (e.g., '5') or null",
+    "class_size": "class size as number string (e.g., '420') or null if not found",
+    "misc": ["array of important miscellaneous notes - one item per activity, award, or notable achievement. Each item should be a concise sentence or bullet point (max 150 chars). Exclude essays and parent/family information. Break down long chunks into separate items."]
+}}
+
+Rules:
+1. Only extract information that is explicitly stated in the document
+2. For SAT/ACT, extract the composite/total score (ignore subsection scores unless composite is missing)
+3. For misc items: extract activities, awards, leadership roles, research, projects, etc. as separate bullet points
+4. Do NOT include essay content or parent/family information in misc
+5. If a field is not found, set it to null (not empty string or 0)
+6. Return ONLY the JSON object, no explanation or markdown formatting
+"""
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",  # Use cheaper model for parsing
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a college application parser. Extract structured data from application documents. Always return valid JSON only, no markdown or explanations."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,  # Low temperature for consistent extraction
+                max_tokens=1500,
+                response_format={"type": "json_object"}  # Force JSON output
+            )
+
+            content = response.choices[0].message.content
+            if content is None:
+                return {
+                    "success": False,
+                    "error": "OpenAI returned empty response",
+                    "updates": {},
+                    "misc": []
+                }
+
+            # Parse JSON response
+            parsed_data = json.loads(content)
+
+            # Build updates dictionary (only non-null values)
+            updates: Dict[str, str] = {}
+            for key in ["gpa_weighted", "gpa_unweighted", "sat", "act", "ap_count", "honors_count", "class_rank_percentile", "class_size"]:
+                value = parsed_data.get(key)
+                if value is not None and value != "":
+                    updates[key] = str(value)
+
+            # Get misc items, filtering out nulls and empty strings
+            misc_items = parsed_data.get("misc", [])
+            if not isinstance(misc_items, list):
+                misc_items = []
+            misc_items = [str(item).strip() for item in misc_items if item and str(item).strip()]
+
+            return {
+                "success": True,
+                "updates": updates,
+                "misc": misc_items
+            }
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse OpenAI JSON response for application document: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to parse OpenAI response: {str(e)}",
+                "updates": {},
+                "misc": []
+            }
+        except Exception as e:
+            logger.error(f"OpenAI API error parsing application document: {e}")
+            return {
+                "success": False,
+                "error": f"OpenAI API error: {str(e)}",
+                "updates": {},
+                "misc": []
+            }
+
 # Global instance
 college_info_service = CollegeInfoService()

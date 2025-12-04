@@ -56,7 +56,13 @@ export type ParsedApplicationData = {
   metrics: ApplicationMetric[]
 }
 
-export const parseApplicationData = (rawText: string): ParsedApplicationData => {
+/**
+ * Parse application data with optional OpenAI fallback for robust extraction
+ */
+export const parseApplicationData = async (
+  rawText: string,
+  useOpenAIFallback: boolean = true
+): Promise<ParsedApplicationData> => {
   let text = rawText.replace(/\r/g, '\n')
 
   // Remove essays, parents info, and other excluded sections
@@ -124,11 +130,22 @@ export const parseApplicationData = (rawText: string): ParsedApplicationData => 
     recordMetric('gpa_unweighted', `${unweightedGpa}`, unweightedGpa, 'Found unweighted GPA')
   }
 
-  // Improved SAT extraction
+  // ENHANCED SAT extraction - multiple patterns including date formats
   const satPatterns = [
-    /sat[^\n]{0,80}?[:\-]?\s*(\d{3,4})\b/i,
+    // "SAT (Aug 2024): 1470 (ERW 710, Math 760)"
+    /sat\s*\([^)]+\)\s*[:\-]?\s*(\d{3,4})\b/i,
+    // "SAT: 1470" or "SAT - 1470" or "SAT 1470"
+    /sat[^\n]{0,30}?[:\-]?\s*(\d{3,4})\b/i,
+    // "1470 on SAT" or "1470 from SAT"
     /(\d{3,4})\s*(?:on|from|score\s*on)?\s*(?:the\s*)?sat/i,
-    /\bsat\s*score[:\-]?\s*(\d{3,4})\b/i
+    // "SAT Score: 1470"
+    /\bsat\s*score[:\-]?\s*(\d{3,4})\b/i,
+    // "SAT Composite: 1470"
+    /\bsat\s*composite[:\-]?\s*(\d{3,4})\b/i,
+    // Look for composite score in parentheses: "(1470)"
+    /\bsat[^\d]{0,50}?\((\d{3,4})\)/i,
+    // "Total SAT: 1470"
+    /total\s*sat[:\-]?\s*(\d{3,4})\b/i
   ]
   let satScore: string | undefined
   for (const pattern of satPatterns) {
@@ -142,12 +159,20 @@ export const parseApplicationData = (rawText: string): ParsedApplicationData => 
     recordMetric('sat', `${satScore}`, satScore, 'Found SAT score')
   }
 
-  // Improved ACT extraction
+  // ENHANCED ACT extraction - multiple patterns including composite details
   const actPatterns = [
-    /act[^\n]{0,80}?[:\-]?\s*(\d{1,2})\b/i,
+    // "ACT: Composite 33 (English 32, Math 34, Reading 33, Science 33)"
+    /act[^\n]{0,50}?composite\s*(\d{1,2})\b/i,
+    // "ACT Composite: 33"
+    /\bact\s*composite[:\-]?\s*(\d{1,2})\b/i,
+    // "ACT: 33" or "ACT - 33" or "ACT 33"
+    /act[^\n]{0,30}?[:\-]?\s*(\d{1,2})\b/i,
+    // "33 on ACT" or "33 from ACT"
     /(\d{1,2})\s*(?:on|from|score\s*on)?\s*(?:the\s*)?act/i,
+    // "ACT Score: 33"
     /\bact\s*score[:\-]?\s*(\d{1,2})\b/i,
-    /\bact\s*composite[:\-]?\s*(\d{1,2})\b/i
+    // Look for composite score in parentheses: "(33)"
+    /\bact[^\d]{0,50}?\((\d{1,2})\)/i
   ]
   let actScore: string | undefined
   for (const pattern of actPatterns) {
@@ -296,11 +321,217 @@ export const parseApplicationData = (rawText: string): ParsedApplicationData => 
   derived.misc.forEach(entry => miscSet.add(entry))
   metrics.push(...derived.metrics)
 
+  // Deduplicate and clean up MISC items
+  let cleanedMisc = cleanAndDeduplicateMisc(Array.from(miscSet))
+
+  // If important fields are missing and OpenAI fallback is enabled, try OpenAI parsing
+  const missingCriticalFields = !satScore && !actScore && !weightedGpa && !unweightedGpa
+  if (useOpenAIFallback && missingCriticalFields && typeof window !== 'undefined') {
+    try {
+      const aiResult = await fetchOpenAIParse(rawText)
+      if (aiResult.success && aiResult.updates) {
+        // Merge AI-extracted updates (only for missing fields)
+        Object.entries(aiResult.updates).forEach(([key, value]) => {
+          const field = key as ProfileField
+          if (!updates[field] && value) {
+            updates[field] = value
+            recordMetric(field, value, value, 'Extracted via OpenAI')
+          }
+        })
+        
+        // Merge AI-extracted misc items (avoid duplicates)
+        if (aiResult.misc && aiResult.misc.length > 0) {
+          aiResult.misc.forEach(item => {
+            const normalized = item.trim().toLowerCase()
+            const isDuplicate = cleanedMisc.some(existing => 
+              existing.toLowerCase() === normalized ||
+              existing.toLowerCase().includes(normalized) ||
+              normalized.includes(existing.toLowerCase())
+            )
+            if (!isDuplicate && item.trim().length > 10) {
+              miscSet.add(item.trim())
+            }
+          })
+          cleanedMisc = cleanAndDeduplicateMisc(Array.from(miscSet))
+        }
+      }
+    } catch (error) {
+      console.warn('OpenAI parsing fallback failed:', error)
+      // Continue with regex-only results
+    }
+  }
+
   return {
     updates,
-    misc: Array.from(miscSet),
+    misc: cleanedMisc,
     metrics
   }
+}
+
+/**
+ * Call backend OpenAI endpoint to parse application document
+ */
+async function fetchOpenAIParse(documentText: string): Promise<{
+  success: boolean
+  updates: Record<string, string>
+  misc: string[]
+  error?: string
+}> {
+  try {
+    // Get backend URL from config
+    const { getApiBaseUrl } = await import('@/lib/config')
+    const backendUrl = getApiBaseUrl()
+    
+    const response = await fetch(`${backendUrl}/api/openai/parse-application`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        document_text: documentText
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    console.error('Failed to call OpenAI parsing endpoint:', error)
+    return {
+      success: false,
+      updates: {},
+      misc: [],
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * Clean up and deduplicate MISC items:
+ * - Remove exact duplicates
+ * - Remove items that are substrings of other items
+ * - Break down large chunks into smaller, structured items
+ * - Normalize formatting
+ */
+function cleanAndDeduplicateMisc(items: string[]): string[] {
+  if (items.length === 0) return []
+
+  // Normalize items (trim, remove extra spaces)
+  const normalized = items.map(item => item.trim().replace(/\s+/g, ' ')).filter(item => item.length > 0)
+
+  // Remove exact duplicates (case-insensitive)
+  const unique = new Set<string>()
+  const seenLower = new Set<string>()
+  
+  for (const item of normalized) {
+    const lower = item.toLowerCase()
+    if (!seenLower.has(lower)) {
+      seenLower.add(lower)
+      unique.add(item)
+    }
+  }
+
+  const uniqueItems = Array.from(unique)
+
+  // Break down large chunks into smaller items
+  const chunked: string[] = []
+  for (const item of uniqueItems) {
+    // If item is very long (>300 chars), try to break it down
+    if (item.length > 300) {
+      const broken = breakDownLargeChunk(item)
+      chunked.push(...broken)
+    } else {
+      chunked.push(item)
+    }
+  }
+
+  // Remove items that are substrings of longer items (keep the longer, more specific one)
+  const filtered: string[] = []
+  for (const item of chunked) {
+    let isSubstring = false
+    for (const other of chunked) {
+      if (item !== other && other.toLowerCase().includes(item.toLowerCase()) && other.length > item.length) {
+        isSubstring = true
+        break
+      }
+    }
+    if (!isSubstring) {
+      filtered.push(item)
+    }
+  }
+
+  // Sort by length (longer items first, then shorter) to prioritize detailed entries
+  return filtered.sort((a, b) => b.length - a.length)
+}
+
+/**
+ * Break down large text chunks into smaller, structured items
+ */
+function breakDownLargeChunk(chunk: string): string[] {
+  const items: string[] = []
+  
+  // Try to split on common delimiters
+  const sections = chunk.split(/(?:\. |\n|• |\* |- |\d+\.\s+)/).filter(s => s.trim().length > 10)
+  
+  // If splitting produced many sections, use them
+  if (sections.length > 2) {
+    for (const section of sections) {
+      const trimmed = section.trim()
+      if (trimmed.length > 15 && trimmed.length < 300) {
+        items.push(trimmed)
+      }
+    }
+  } else {
+    // If splitting didn't work well, try to find structured sections
+    // Look for patterns like "Parent 1:", "Parent 2:", "Testing Detail:", etc.
+    const sectionPatterns = [
+      /(Testing\s+Detail[^:]*:[^•\n]{0,200})/gi,
+      /(Family\s+Information[^:]*:[^•\n]{0,200})/gi,
+      /(Activities[^:]*:[^•\n]{0,200})/gi,
+      /(Honors?\s+&?\s*Awards?[^:]*:[^•\n]{0,200})/gi,
+      /(Parent\s*\d+[^:]*:[^•\n]{0,150})/gi
+    ]
+    
+    const extracted: string[] = []
+    for (const pattern of sectionPatterns) {
+      const matches = chunk.match(pattern)
+      if (matches) {
+        extracted.push(...matches.map(m => m.trim()))
+      }
+    }
+    
+    if (extracted.length > 0) {
+      items.push(...extracted)
+    } else {
+      // Last resort: split by sentences if really long
+      const sentences = chunk.match(/[^.!?]+[.!?]+/g) || []
+      if (sentences.length > 3) {
+        // Group sentences into logical chunks
+        let currentChunk = ''
+        for (const sentence of sentences) {
+          if ((currentChunk + sentence).length < 250) {
+            currentChunk += sentence.trim() + ' '
+          } else {
+            if (currentChunk.trim().length > 20) {
+              items.push(currentChunk.trim())
+            }
+            currentChunk = sentence.trim() + ' '
+          }
+        }
+        if (currentChunk.trim().length > 20) {
+          items.push(currentChunk.trim())
+        }
+      } else {
+        // Can't break down, return as is
+        items.push(chunk)
+      }
+    }
+  }
+
+  return items.length > 0 ? items : [chunk]
 }
 
 const stripExcludedSections = (text: string): string => {
@@ -532,21 +763,46 @@ const extractAdditionalInfo = (text: string, miscSet: Set<string>) => {
 }
 
 const extractTestingDetails = (text: string, miscSet: Set<string>) => {
+  // More specific patterns to catch SAT/ACT with detailed subscores
   const testingLinePatterns = [
-    { regex: /SAT[^\n]+/gi, prefix: 'SAT Detail' },
-    { regex: /ACT[^\n]+/gi, prefix: 'ACT Detail' },
-    { regex: /AP Exams?[^\n]+/gi, prefix: 'AP Exam Detail' },
-    { regex: /IB Exams?[^\n]+/gi, prefix: 'IB Exam Detail' },
-    { regex: /PSAT[^\n]+/gi, prefix: 'PSAT Detail' }
+    // SAT with date and subscores: "SAT (Aug 2024): 1470 (ERW 710, Math 760)"
+    { regex: /SAT\s*\([^)]+\)\s*[:\-]?\s*\d{3,4}\s*\([^)]+\)/gi, prefix: 'SAT' },
+    // ACT with composite and subscores: "ACT: Composite 33 (English 32, Math 34...)"
+    { regex: /ACT[^\n]{0,100}?Composite\s*\d{1,2}\s*\([^)]+\)/gi, prefix: 'ACT' },
+    // General SAT lines
+    { regex: /SAT[^\n]{0,150}+/gi, prefix: 'SAT' },
+    // General ACT lines
+    { regex: /ACT[^\n]{0,150}+/gi, prefix: 'ACT' },
+    // AP Exams with scores
+    { regex: /AP\s+Exams?[^\n]{0,200}+/gi, prefix: 'AP Exams' },
+    // IB Exams
+    { regex: /IB\s+Exams?[^\n]{0,150}+/gi, prefix: 'IB Exams' },
+    // PSAT
+    { regex: /PSAT[^\n]{0,100}+/gi, prefix: 'PSAT' }
   ]
 
+  const seenTesting = new Set<string>()
   testingLinePatterns.forEach(({ regex, prefix }) => {
     const matches = text.match(regex)
     if (matches) {
       matches
         .map(entry => entry.trim())
-        .filter(entry => entry.length > 8 && entry.length < 200)
-        .forEach(entry => miscSet.add(`${prefix}: ${entry}`))
+        .filter(entry => {
+          // Filter out very short or very long entries
+          if (entry.length < 8 || entry.length > 250) return false
+          // Don't add duplicates
+          const key = `${prefix}:${entry.toLowerCase()}`
+          if (seenTesting.has(key)) return false
+          seenTesting.add(key)
+          return true
+        })
+        .forEach(entry => {
+          // Only add prefix if not already present
+          const prefixed = entry.toLowerCase().startsWith(prefix.toLowerCase()) 
+            ? entry 
+            : `${prefix}: ${entry}`
+          miscSet.add(prefixed)
+        })
     }
   })
 }

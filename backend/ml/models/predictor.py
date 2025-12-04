@@ -374,13 +374,22 @@ class AdmissionPredictor:
             acceptance_rate = 0.5  # reasonable default
         acceptance_rate = float(np.clip(acceptance_rate, 0.02, 0.98))
 
-        # Blend with acceptance rate so hard constraints have weight
-        final_prob = (final_prob * 0.7) + (acceptance_rate * 0.3)
-
-        # Enforce dynamic caps relative to acceptance rate
-        max_allowed = min(0.98, acceptance_rate + 0.25)
+        # Calculate dynamic caps BEFORE blending to avoid inverting calibration intent
+        # Allow exceptional candidates to exceed acceptance rate by a reasonable margin
+        max_allowed = min(0.98, acceptance_rate + 0.35)  # Increased from 0.25 to 0.35 for stronger candidates
         min_allowed = max(0.02, acceptance_rate * 0.3)
-        final_prob = np.clip(final_prob, min_allowed, max_allowed)
+
+        # Blend with acceptance rate so hard constraints have weight
+        blended_prob = (final_prob * 0.7) + (acceptance_rate * 0.3)
+
+        # Only clamp if the blended probability exceeds the maximum allowed
+        # This prevents valid predictions from being artificially lowered
+        if blended_prob > max_allowed:
+            final_prob = max_allowed
+        elif blended_prob < min_allowed:
+            final_prob = min_allowed
+        else:
+            final_prob = blended_prob
         
         # Confidence interval (wider if ML is uncertain)
         ci_width = 0.15 * (1 - ml_confidence)  # Smaller CI when more confident

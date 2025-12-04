@@ -371,11 +371,22 @@ def _load_csv_tuition_data() -> None:
         out_state = _safe_number(row.get("tuition_out_of_state_usd"), in_state)
 
         # Room & board breakdown is not in CSV; approximate using avg_net_price_usd if present
-        avg_net_price = _safe_number(row.get("avg_net_price_usd"), 0.0)
-        if avg_net_price and avg_net_price > in_state:
-            room_board_estimate = max(0.0, avg_net_price - in_state)
+        # Check raw value first to distinguish between "not provided" and "actually zero"
+        avg_net_price_raw = row.get("avg_net_price_usd")
+        if avg_net_price_raw is not None and not pd.isna(avg_net_price_raw):
+            # Value exists and is not NaN - process it
+            try:
+                avg_net_price = float(avg_net_price_raw)
+                # Only use avg_net_price if it's greater than zero AND greater than in-state tuition
+                # This handles the case where avg_net_price is legitimately zero (treated as falsy by 'and')
+                if avg_net_price > 0.0 and avg_net_price > in_state:
+                    room_board_estimate = max(0.0, avg_net_price - in_state)
+                else:
+                    room_board_estimate = 18000.0  # fallback when value is zero or too low
+            except (ValueError, TypeError):
+                room_board_estimate = 18000.0  # fallback on conversion error
         else:
-            room_board_estimate = 18000.0  # fallback
+            room_board_estimate = 18000.0  # fallback when avg_net_price_usd is not provided or is NaN
 
         fees_estimate = 1000.0
         books_estimate = 1200.0

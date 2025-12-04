@@ -465,20 +465,21 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
       chunked.push(item)
     }
   }
+  const chunkedDeduped = dedupeEntries(chunked)
 
   // Remove items that are substrings of longer items (keep the longer, more specific one)
   // But be more conservative - only remove if one item is clearly a subset of another
   const filtered: string[] = []
-  for (const item of chunked) {
+  for (const item of chunkedDeduped) {
     let isSubstring = false
-    for (const other of chunked) {
+    for (const other of chunkedDeduped) {
       if (item !== other && other.length > item.length) {
         const itemLower = normalizeMiscKey(item)
         const otherLower = normalizeMiscKey(other)
         if (!itemLower || !otherLower) continue
 
         // Only remove if item is clearly a substring AND the other item is significantly longer
-        if (otherLower.includes(itemLower) && other.length >= item.length * 1.35) {
+        if (otherLower.includes(itemLower) && other.length >= item.length * 1.25) {
           isSubstring = true
           break
         }
@@ -494,7 +495,7 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     entry => !/\b(parent|mother|father|guardian)\b/i.test(entry.replace(/[^a-zA-Z\s]/g, '').trim())
   )
 
-  return sortMiscEntries(parentFiltered)
+  return sortMiscEntries(dedupeEntries(parentFiltered))
 }
 
 /**
@@ -510,6 +511,25 @@ const normalizeMiscKey = (value: string): string => {
     .replace(/\s+/g, ' ')
     .replace(/[.,;:!?]+$/g, '')
     .trim()
+}
+
+const dedupeEntries = (entries: string[]): string[] => {
+  const seen = new Set<string>()
+  const deduped: string[] = []
+
+  entries.forEach(entry => {
+    const key = normalizeMiscKey(entry)
+    if (!key) {
+      return
+    }
+
+    if (!seen.has(key)) {
+      seen.add(key)
+      deduped.push(entry.trim())
+    }
+  })
+
+  return deduped
 }
 
 /**

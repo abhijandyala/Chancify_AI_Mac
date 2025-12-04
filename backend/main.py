@@ -1056,6 +1056,9 @@ class FrontendProfileRequest(BaseModel):
     major: str = "Computer Science"
     college: str = "Stanford University"
 
+    # Optional: parsed MISC bullets from application parser (for ML uplift)
+    misc: list[str] = []
+
 # Legacy prediction request model (for backward compatibility)
 class PredictionRequest(BaseModel):
     # Academic data
@@ -1247,8 +1250,15 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
             gpa_average=college_data['gpa_average']
         )
 
-        # Make hybrid prediction
-        result = predictor.predict(student, college, model_name='ensemble', use_formula=True)
+        # Make hybrid prediction with optional misc uplift
+        result = predictor.predict(
+            student,
+            college,
+            model_name='ensemble',
+            use_formula=True,
+            misc_items=request.misc if hasattr(request, "misc") else None,
+            use_openai_misc=True,
+        )
 
         # Determine category based on final probability
         # Use same thresholds as suggestions endpoint: Safety: 75%+, Target: 25-75%, Reach: 10-25%
@@ -1585,7 +1595,12 @@ async def predict_admission(request: PredictionRequest):
         )
 
         # Make prediction
-        result = predictor.predict(student, college)
+        result = predictor.predict(
+            student,
+            college,
+            misc_items=request.misc if hasattr(request, "misc") else None,
+            use_openai_misc=True,
+        )
 
         # Determine outcome based on probability
         if result.probability >= 0.7:

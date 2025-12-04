@@ -7,7 +7,7 @@ import joblib
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from ml.preprocessing.feature_extractor import StudentFeatures, CollegeFeatures, FeatureExtractor
@@ -256,7 +256,9 @@ class AdmissionPredictor:
         student: StudentFeatures,
         college: CollegeFeatures,
         model_name: str = 'ensemble',
-        use_formula: bool = True
+        use_formula: bool = True,
+        misc_items: Optional[List[str]] = None,
+        use_openai_misc: bool = False,
     ) -> PredictionResult:
         """
         Predict admission probability with hybrid ML+Formula approach.
@@ -364,6 +366,21 @@ class AdmissionPredictor:
         print(f"DEBUG: College name: {college.name}")
         print(f"DEBUG: College type: {type(college)}")
         final_prob = self._apply_elite_calibration(final_prob, college)
+
+        # Optional MISC uplift (monotone-positive, capped)
+        if misc_items:
+            try:
+                from ml.preprocessing.misc_features import compute_misc_uplift, extract_misc_signals
+
+                signals = extract_misc_signals(
+                    misc_items,
+                    use_openai=use_openai_misc,
+                )
+                misc_uplift = compute_misc_uplift(signals, getattr(college, "acceptance_rate", 0.5))
+                final_prob = min(0.98, final_prob + misc_uplift)
+                print(f"MISC uplift applied: +{misc_uplift:.3f}")
+            except Exception as e:
+                print(f"Warning: misc uplift failed: {e}")
         
         # Allow probabilities up to 98% for exceptional applicants
         final_prob = np.clip(final_prob, 0.02, 0.98)

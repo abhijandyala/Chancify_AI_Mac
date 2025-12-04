@@ -100,5 +100,14 @@ def create_tables():
 
 def drop_tables():
     """Drop all database tables (for testing)."""
-    from .models import Base
-    Base.metadata.drop_all(bind=engine)
+    if engine is None:
+        logger.warning("Cannot drop tables: Database engine not initialized")
+        return
+
+    try:
+        from .models import Base
+        Base.metadata.drop_all(bind=engine)
+        logger.info("Database tables dropped successfully")
+    except Exception as e:
+        logger.error(f"Failed to drop tables: {e}")
+        raise

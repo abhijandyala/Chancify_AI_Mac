@@ -58,10 +58,10 @@ export type ParsedApplicationData = {
 
 export const parseApplicationData = (rawText: string): ParsedApplicationData => {
   let text = rawText.replace(/\r/g, '\n')
-  
+
   // Remove essays, parents info, and other excluded sections
   text = stripExcludedSections(text)
-  
+
   const updates: Partial<Record<ProfileField, string>> = {}
   const metrics: ApplicationMetric[] = []
   const miscSet = new Set<string>()
@@ -287,6 +287,9 @@ export const parseApplicationData = (rawText: string): ParsedApplicationData => 
   // Extract additional information section
   extractAdditionalInfo(text, miscSet)
 
+  // Extract testing-specific lines (SAT/ACT/AP exam summaries)
+  extractTestingDetails(text, miscSet)
+
   // Derive factor insights
   const derived = deriveFactorInsights(text)
   Object.assign(updates, derived.updates)
@@ -302,45 +305,58 @@ export const parseApplicationData = (rawText: string): ParsedApplicationData => 
 
 const stripExcludedSections = (text: string): string => {
   const lines = text.split('\n')
-  let skipping = false
   const cleaned: string[] = []
+  let skipping = false
   let skipUntilNextSection = false
 
-  const isSectionHeading = (line: string) =>
-    /^\s*\d+\.\s+/.test(line) || /^[A-Z][A-Za-z\s]{3,}(?:\:|\-)/.test(line) || /^[A-Z\s]{5,}/.test(line)
-
-  const shouldSkipSection = (line: string) => {
-    const lower = line.toLowerCase()
-    return (
-      /essay/i.test(lower) ||
-      /personal\s+essay/i.test(lower) ||
-      /supplemental\s+essay/i.test(lower) ||
-      /why\s+.*university/i.test(lower) ||
-      /parent/i.test(lower) ||
-      /mother|father|guardian/i.test(lower) ||
-      /family\s+information/i.test(lower) ||
-      /family\s+background/i.test(lower)
-    )
+  const looksLikeHeading = (line: string) => {
+    if (!line) return false
+    if (line.length > 120) return false
+    if (/^\s*\d+\.\s*/.test(line)) return true
+    if (line.endsWith(':')) return true
+    const wordCount = line.split(/\s+/).length
+    if (wordCount <= 8 && /^[A-Za-z0-9\s“”"'&,\-\–—:]+$/.test(line)) return true
+    return false
   }
 
-  lines.forEach((line, index) => {
+  const getSkipCategory = (line: string): 'essay' | 'parent' | null => {
+    if (!looksLikeHeading(line)) return null
+    const normalized = line.toLowerCase()
+    if (/(essay|personal statement|supplemental|short answer|prompt)/.test(normalized)) {
+      return 'essay'
+    }
+    if (/(^parent|guardian|family information|family background)/.test(normalized)) {
+      return 'parent'
+    }
+    return null
+  }
+
+  const shouldSkipInline = (line: string) => /^\s*(parent|guardian|mother|father)\s*[:\-]/i.test(line)
+
+  lines.forEach(line => {
     const trimmed = line.trim()
-    
-    if (skipUntilNextSection && trimmed && isSectionHeading(trimmed) && !shouldSkipSection(trimmed)) {
-      skipUntilNextSection = false
+
+    if (!skipping && trimmed) {
+      const skipCategory = getSkipCategory(trimmed)
+      if (skipCategory) {
+        skipping = true
+        skipUntilNextSection = true
+        return
+      }
+    }
+
+    if (skipUntilNextSection && trimmed && looksLikeHeading(trimmed) && !getSkipCategory(trimmed)) {
       skipping = false
+      skipUntilNextSection = false
       cleaned.push(line)
       return
     }
 
-    if (!skipping && trimmed && shouldSkipSection(trimmed)) {
-      skipping = true
-      skipUntilNextSection = true
+    if (skipping) {
       return
     }
 
-    if (skipping) {
-      // Skip essay content but stop at next major section
+    if (trimmed && shouldSkipInline(trimmed)) {
       return
     }
 
@@ -351,6 +367,30 @@ const stripExcludedSections = (text: string): string => {
 }
 
 const extractStructuredSections = (text: string, miscSet: Set<string>) => {
+  // Capture key numbered sections so details show up in MISC
+  extractSectionEntries(
+    text,
+    /\b2\.\s*Education\b/i,
+    {
+      prefix: 'Education Detail',
+      maxEntries: 15,
+      minLength: 10,
+      skipPattern: /(parent|guardian)/i
+    },
+    miscSet
+  )
+
+  extractSectionEntries(
+    text,
+    /\b3\.\s*Testing\b/i,
+    {
+      prefix: 'Testing Detail',
+      maxEntries: 12,
+      minLength: 8
+    },
+    miscSet
+  )
+
   // Extract Activities section
   const activitiesMatch = text.match(/activities[^a-z]*?([\s\S]{0,2000})/i)
   if (activitiesMatch && activitiesMatch[1]) {
@@ -360,13 +400,49 @@ const extractStructuredSections = (text: string, miscSet: Set<string>) => {
       .slice(0, 20)
       .map(block => block.trim().replace(/\s+/g, ' '))
       .filter(block => !/essay|parent|family/i.test(block))
-    
+
     activitiesText.forEach(activity => {
       if (activity.length > 15 && activity.length < 300) {
         miscSet.add(activity)
       }
     })
   }
+}
+
+type SectionExtractionOptions = {
+  prefix: string
+  maxEntries?: number
+  minLength?: number
+  skipPattern?: RegExp
+}
+
+const extractSectionEntries = (
+  text: string,
+  headingPattern: RegExp,
+  options: SectionExtractionOptions,
+  miscSet: Set<string>
+) => {
+  const match = headingPattern.exec(text)
+  if (!match) {
+    return
+  }
+
+  const startIndex = match.index + match[0].length
+  const remainder = text.slice(startIndex)
+  const nextHeadingIndex = remainder.search(/\n\s*\d+\.\s+[A-Z]/)
+  const sectionBody = nextHeadingIndex === -1 ? remainder : remainder.slice(0, nextHeadingIndex)
+
+  sectionBody
+    .split(/\n+/)
+    .map(line => line.trim().replace(/\s+/g, ' '))
+    .map(line => line.replace(/^[•\-\*]\s*/, '').replace(/^\d+\.\s*/, ''))
+    .filter(line => line.length >= (options.minLength ?? 8))
+    .filter(line => {
+      if (!options.skipPattern) return true
+      return !options.skipPattern.test(line.toLowerCase())
+    })
+    .slice(0, options.maxEntries ?? 10)
+    .forEach(line => miscSet.add(`${options.prefix}: ${line}`))
 }
 
 const extractActivities = (text: string, miscSet: Set<string>) => {
@@ -401,7 +477,7 @@ const extractAwards = (text: string, miscSet: Set<string>) => {
       .filter(award => award.length > 5 && award.length < 200)
       .filter(award => !/essay|parent|family/i.test(award))
       .slice(0, 20)
-    
+
     awardsText.forEach(award => {
       if (award.length > 5) {
         miscSet.add(`Award/Honor: ${award}`)
@@ -432,7 +508,7 @@ const extractCourses = (text: string, miscSet: Set<string>) => {
       .filter(course => course.length > 3 && course.length < 100)
       .filter(course => /^(AP|Honors|IB|Advanced|College)/i.test(course))
       .slice(0, 30)
-    
+
     if (coursesText.length > 0) {
       miscSet.add(`Course List: ${coursesText.join(', ')}`)
     }
@@ -448,11 +524,31 @@ const extractAdditionalInfo = (text: string, miscSet: Set<string>) => {
       .filter(block => block.length > 20 && block.length < 500)
       .filter(block => !/essay|parent|family/i.test(block))
       .slice(0, 5)
-    
+
     infoText.forEach(info => {
       miscSet.add(info)
     })
   }
+}
+
+const extractTestingDetails = (text: string, miscSet: Set<string>) => {
+  const testingLinePatterns = [
+    { regex: /SAT[^\n]+/gi, prefix: 'SAT Detail' },
+    { regex: /ACT[^\n]+/gi, prefix: 'ACT Detail' },
+    { regex: /AP Exams?[^\n]+/gi, prefix: 'AP Exam Detail' },
+    { regex: /IB Exams?[^\n]+/gi, prefix: 'IB Exam Detail' },
+    { regex: /PSAT[^\n]+/gi, prefix: 'PSAT Detail' }
+  ]
+
+  testingLinePatterns.forEach(({ regex, prefix }) => {
+    const matches = text.match(regex)
+    if (matches) {
+      matches
+        .map(entry => entry.trim())
+        .filter(entry => entry.length > 8 && entry.length < 200)
+        .forEach(entry => miscSet.add(`${prefix}: ${entry}`))
+    }
+  })
 }
 
 const scoreFromCount = (count: number, thresholds: { ten: number; eight: number; six: number; four: number }) => {

@@ -6,8 +6,8 @@ FastAPI application for college admissions probability calculations
 import os
 import logging
 import time
-from typing import Dict, Any
-from fastapi import FastAPI, Request
+from typing import Dict, Any, Optional
+from fastapi import FastAPI, Request, HTTPException, status
 from starlette.responses import Response
 
 # Configure logging FIRST
@@ -167,6 +167,24 @@ def safe_round(value, decimals=4, default=0.0):
     """Round value to specified decimals, handling NaN, None, and infinity"""
     safe_val = safe_float(value, default)
     return round(safe_val, decimals)
+
+def require_service(service_obj, service_name: str, resolution_hint: Optional[str] = None):
+    """
+    Ensure a lazily imported service is available before use.
+
+    Raises:
+        HTTPException: When the requested dependency is unavailable
+    """
+    if service_obj is None:
+        message = f"{service_name} is not available."
+        if resolution_hint:
+            message += f" {resolution_hint}"
+        logger.error(message)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=message
+        )
+    return service_obj
 
 # Get environment
 ENV = os.getenv("ENVIRONMENT", "development")
@@ -434,7 +452,13 @@ async def search_colleges(q: str = "", limit: int = 20):
 
         # Use already loaded dataset if available to avoid IO and path issues
         try:
-            college_df = real_college_suggestions.college_df
+            college_df = None
+
+            if real_college_suggestions is not None:
+                college_df = getattr(real_college_suggestions, "college_df", None)
+            else:
+                logger.warning("real_college_suggestions not initialized; falling back to CSV data")
+
             if college_df is None or getattr(college_df, 'empty', False):
                 # Fallback to CSV path - try multiple locations
                 possible_paths = [
@@ -443,16 +467,18 @@ async def search_colleges(q: str = "", limit: int = 20):
                     'data/raw/real_colleges_integrated.csv',  # Relative to current working directory
                 ]
 
-                csv_path = None
-                for path in possible_paths:
-                    if os.path.exists(path):
-                        csv_path = path
-                        break
+                csv_path = next((path for path in possible_paths if os.path.exists(path)), None)
 
                 if csv_path:
+                    if pd is None:
+                        raise RuntimeError("pandas is required to load college data but is not installed")
                     college_df = pd.read_csv(csv_path)
                 else:
-                    logger.warning(f"Could not find real_colleges_integrated.csv. Tried: {possible_paths}")
+                    raise FileNotFoundError(f"Could not find real_colleges_integrated.csv. Tried: {possible_paths}")
+
+            if college_df is None or getattr(college_df, 'empty', False):
+                raise RuntimeError("College dataset is empty after attempting all sources")
+
         except Exception as e:
             logger.error(f"Error loading college data: {e}")
             return {
@@ -467,7 +493,7 @@ async def search_colleges(q: str = "", limit: int = 20):
         matching_colleges = []
 
         # First, try to find college by nickname/abbreviation
-        official_name = nickname_mapper.find_college_by_nickname(q)
+        official_name = nickname_mapper.find_college_by_nickname(q) if nickname_mapper else None
         logger.info(f"Nickname search for '{q}': {official_name}")
 
         # If we found an official name from nickname mapping, search for that
@@ -616,11 +642,17 @@ async def get_college_tuition(college_name: str):
     Returns:
         JSON response with tuition and cost information
     """
+    tuition_service = require_service(
+        college_tuition_service,
+        "College tuition service",
+        "Ensure data.college_tuition_service imports successfully."
+    )
+
     try:
         logger.info(f"Getting tuition data for: {college_name}")
 
         # Get tuition data
-        tuition_data = college_tuition_service.get_tuition_data_with_cache(college_name, suggestion_cache)
+        tuition_data = tuition_service.get_tuition_data_with_cache(college_name, suggestion_cache)
 
         logger.info(f"Tuition data retrieved for {college_name}: ${tuition_data['total_in_state']:,} total")
 
@@ -657,11 +689,17 @@ async def get_tuition_by_zipcode(college_name: str, zipcode: str):
     Returns:
         JSON response with tuition information and state determination
     """
+    tuition_state_service_instance = require_service(
+        tuition_state_service,
+        "Tuition state service",
+        "Ensure data.tuition_state_service imports successfully."
+    )
+
     try:
         logger.info(f"Getting tuition for {college_name} with zipcode {zipcode}")
 
         # Get tuition data based on zipcode
-        result = tuition_state_service.get_tuition_for_college_and_zipcode(college_name, zipcode)
+        result = tuition_state_service_instance.get_tuition_for_college_and_zipcode(college_name, zipcode)
 
         if result['success']:
             logger.info(f"Tuition determined for {college_name}: ${result['tuition']:,} ({'in-state' if result['is_in_state'] else 'out-of-state'})")
@@ -697,14 +735,20 @@ async def get_improvement_analysis(college_name: str, user_profile: Dict[str, An
     Returns:
         JSON response with improvement areas and recommendations
     """
+    improvement_service = require_service(
+        improvement_analysis_service,
+        "Improvement analysis service",
+        "Ensure data.improvement_analysis_service imports successfully."
+    )
+
     try:
         logger.info(f"Getting improvement analysis for {college_name}")
 
         # Get improvement recommendations
-        improvements = improvement_analysis_service.analyze_user_profile(user_profile, college_name)
+        improvements = improvement_service.analyze_user_profile(user_profile, college_name)
 
         # Calculate combined impact
-        combined_impact = improvement_analysis_service.calculate_combined_impact(improvements)
+        combined_impact = improvement_service.calculate_combined_impact(improvements)
 
         # Convert to JSON-serializable format
         improvements_data = []
@@ -1212,6 +1256,12 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
     Returns:
         JSON response with 9 balanced college suggestions and metadata
     """
+    suggestions_service = require_service(
+        real_college_suggestions,
+        "College suggestions service",
+        "Ensure data.real_college_suggestions imports successfully."
+    )
+
     try:
         # Create cache key from request data
         cache_key = f"{request.gpa_unweighted}_{request.gpa_weighted}_{request.sat}_{request.act}_{request.major}_{request.extracurricular_depth}"
@@ -1266,15 +1316,15 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
 
         # Try to get balanced suggestions from real IPEDS data
         try:
-            college_suggestions = real_college_suggestions.get_balanced_suggestions(major, student_strength)
+            college_suggestions = suggestions_service.get_balanced_suggestions(major, student_strength)
 
             # If we don't have enough suggestions, use fallback
             if len(college_suggestions) < 9:
-                college_suggestions = real_college_suggestions.get_fallback_suggestions(major, student_strength)
+                college_suggestions = suggestions_service.get_fallback_suggestions(major, student_strength)
 
         except Exception as e:
             logger.error(f"Error getting real college suggestions: {e}")
-            college_suggestions = real_college_suggestions.get_fallback_suggestions(major, student_strength)
+            college_suggestions = suggestions_service.get_fallback_suggestions(major, student_strength)
 
 
         # Convert to API response format
@@ -1286,7 +1336,18 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
             probability = college_data.get('probability', 0.5)
 
             # Get major relevance info
-            major_relevance = get_major_relevance_info(college_name, major)
+            if get_major_relevance_info is not None:
+                major_relevance = get_major_relevance_info(college_name, major)
+            else:
+                # Fallback when major mapping service is unavailable
+                logger.warning(f"get_major_relevance_info not available, using fallback for {college_name}")
+                major_relevance = {
+                    "score": 0.5,
+                    "match_level": "Unknown Match",
+                    "confidence": "Low",
+                    "is_relevant": True,
+                    "is_strong": False
+                }
 
             # Handle NaN values for enrollment
             student_body_size = college_data['student_body_size']

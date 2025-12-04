@@ -200,10 +200,11 @@ export default function HomePage() {
       const filteredUpdates: Partial<Profile> = {}
 
       ;(Object.entries(parsed.updates) as [keyof Profile, Profile[keyof Profile]][]).forEach(([key, value]) => {
-        if (typeof value !== 'string') return
+        // Skip misc field (it's handled separately) and ensure value is a string
+        if (key === 'misc' || typeof value !== 'string') return
         const currentValue = profile[key]
         if (typeof currentValue === 'string' && !currentValue.trim()) {
-          filteredUpdates[key] = value
+          ;(filteredUpdates as any)[key] = value
         }
       })
 
@@ -1035,10 +1036,13 @@ const extractTextFromFile = async (file: File) => {
 }
 
 const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
-  const pdfjsLib = (await import('pdfjs-dist/legacy/build/pdf.js')) as any
-  if (pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    const version = pdfjsLib.version || '4.2.67'
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`
+  // Dynamic import for pdfjs-dist (v4.x structure)
+  const pdfjsLib = await import('pdfjs-dist')
+  
+  // Set up worker for browser environment
+  if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    // Use CDN worker for browser builds
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.2.67'}/pdf.worker.min.js`
   }
 
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
@@ -1053,7 +1057,7 @@ const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
 }
 
 const extractDocxText = async (arrayBuffer: ArrayBuffer) => {
-  const mammoth = await import('mammoth/mammoth.browser')
+  const mammoth = await import('mammoth')
   const { value } = await mammoth.extractRawText({ arrayBuffer })
   return value || ''
 }

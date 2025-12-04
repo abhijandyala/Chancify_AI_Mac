@@ -186,17 +186,17 @@ function Money({ n }: { n?: number }) {
   return <span>${n.toLocaleString()}</span>;
 }
 
-function ImprovementCard({ area, current, target, impact, priority, description, actionable_steps }: { 
-  area: string; 
-  current: string; 
-  target: string; 
+function ImprovementCard({ area, current, target, impact, priority, description, actionable_steps }: {
+  area: string;
+  current: string;
+  target: string;
   impact: number;
   priority?: string;
   description?: string;
   actionable_steps?: string[];
 }) {
   return (
-    <motion.div 
+    <motion.div
       className="relative group rounded-2xl bg-black border border-yellow-500/30 p-7 md:p-8 hover:border-yellow-400/60 transition-all duration-300 min-h-[420px] shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_10px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_0_1px_rgba(234,179,8,0.25),0_14px_40px_rgba(0,0,0,0.7)]"
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
@@ -218,7 +218,7 @@ function ImprovementCard({ area, current, target, impact, priority, description,
                 </span>
               )}
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3 mb-2">
               <div className="space-y-1">
                 <span className="block text-neutral-400 text-xs">Current</span>
@@ -229,7 +229,7 @@ function ImprovementCard({ area, current, target, impact, priority, description,
                 <span className="inline-block text-yellow-400 font-semibold text-sm bg-yellow-500/10 px-3 py-1.5 rounded-md border border-yellow-500/30">{target}</span>
               </div>
             </div>
-            
+
             {description && (
               <p className="text-sm text-neutral-300/90 mb-1 leading-relaxed">{description}</p>
             )}
@@ -302,7 +302,7 @@ export default function CalculationsPage() {
     if (!improvementData?.improvements || !Array.isArray(improvementData.improvements)) {
       return [];
     }
-    
+
     return improvementData.improvements.filter((imp) => {
       // Hide items explicitly marked as Target Met or with zero/negative impact
       const targetText = (imp.target || '').toLowerCase()
@@ -333,7 +333,7 @@ export default function CalculationsPage() {
       return true
     })
   }, [improvementData]);
-  
+
   // Log filtering results
   // MUST be called before any early returns (Rules of Hooks)
   React.useEffect(() => {
@@ -351,10 +351,10 @@ export default function CalculationsPage() {
       try {
         const selectedColleges = JSON.parse(localStorage.getItem('selectedColleges') || '[]');
         const userProfile = JSON.parse(localStorage.getItem('userProfile') || '{}');
-        
+
         // Set the user profile state
         setUserProfile(userProfile);
-        
+
         if (selectedColleges.length === 0) {
           router.push('/college-selection');
           return;
@@ -362,45 +362,45 @@ export default function CalculationsPage() {
 
         // Get the first selected college for detailed analysis
         const firstCollege = selectedColleges[0];
-        
+
         // The college ID from localStorage might be a backend ID (e.g., college_1000669)
         // We need to get the actual college name from the backend data
         // For now, we'll use the ID as-is and let the backend handle it
         const collegeName = firstCollege;
-        
+
         console.log('🔍 DEBUGGING CALCULATE PAGE:');
         console.log('🔍 Selected Colleges from localStorage:', selectedColleges);
         console.log('🔍 First College ID:', firstCollege);
         console.log('🔍 College Name to send:', collegeName);
         console.log('🔍 User Profile from localStorage:', userProfile);
-        
+
         // Calculate probability using the backend API
         const API_BASE_URL = getApiBaseUrl();
         const headers = withNgrokHeaders(API_BASE_URL, {
           'Content-Type': 'application/json',
         });
-        
+
         const requestData = {
           ...userProfile,
           college: collegeName // Send college name instead of ID
         };
-        
+
         console.log('🔍 REQUEST DATA TO BACKEND:', requestData);
         console.log('🔍 API URL:', `${API_BASE_URL}/api/predict/frontend`);
-        
+
         const response = await fetch(`${API_BASE_URL}/api/predict/frontend`, {
           method: 'POST',
           headers,
           body: JSON.stringify(requestData)
         });
-        
+
         const result = await response.json();
         console.log('🔍 BACKEND RESPONSE DEBUG:', result);
         console.log('🔍 COLLEGE DATA FROM BACKEND:', result.college_data);
         console.log('🔍 COLLEGE NAME FROM BACKEND:', result.college_name);
         console.log('🔍 COLLEGE DATA NAME:', result.college_data?.name);
         console.log('🔍 COLLEGE ID:', result.college_id);
-        
+
         // CRITICAL: Verify we have a college name from the response
         if (!result.college_name && !result.college_data?.name) {
           console.error('❌ ERROR: Backend response missing college_name!');
@@ -412,7 +412,7 @@ export default function CalculationsPage() {
         console.log('🔍 FORMULA PROBABILITY FROM BACKEND:', result.formula_probability);
         console.log('🔍 MODEL USED FROM BACKEND:', result.model_used);
         console.log('🔍 EXPLANATION FROM BACKEND:', result.explanation);
-        
+
         const probability = result.probability || 0;
         const userChancePercent = Math.round(probability * 100);
         setUserChance(userChancePercent);
@@ -424,7 +424,7 @@ export default function CalculationsPage() {
         console.log('🔍 Formula Probability:', result.formula_probability);
         console.log('🔍 Model Used:', result.model_used);
         console.log('🔍 Explanation:', result.explanation);
-        
+
         // FIXED: Calculate realistic outcome distribution
         // For elite schools like Carnegie Mellon with ~16.5% acceptance chance:
         // - Acceptance: actual probability from ML model
@@ -433,7 +433,7 @@ export default function CalculationsPage() {
         const acceptRate = probability; // 0.0 to 1.0
         const waitlistRate = Math.min(0.10, acceptRate * 0.5); // 10% max, or half of acceptance rate
         const rejectRate = 1.0 - acceptRate - waitlistRate;
-        
+
         console.log('🔍 OUTCOME CALCULATION:');
         console.log('🔍 Accept Rate:', (acceptRate * 100).toFixed(1) + '%');
         console.log('🔍 Waitlist Rate:', (waitlistRate * 100).toFixed(1) + '%');
@@ -442,13 +442,13 @@ export default function CalculationsPage() {
       // Set college name for subject emphasis hook - map to backend format
       // CRITICAL: Use result.college_name from backend response, not the local variable
       const backendCollegeName = result.college_name || result.college_data?.name || firstCollege || 'Selected College';
-      
+
       console.log('🔍 Setting college name for improvement analysis:');
       console.log('  - result.college_name:', result.college_name);
       console.log('  - result.college_data?.name:', result.college_data?.name);
       console.log('  - firstCollege (from localStorage):', firstCollege);
       console.log('  - backendCollegeName (final):', backendCollegeName);
-      
+
       // Map college names to backend format
       const collegeNameMapping: { [key: string]: string } = {
         'Carnegie Mellon University': 'Carnegie Mellon',
@@ -456,10 +456,10 @@ export default function CalculationsPage() {
         'University of Pennsylvania': 'Penn',
         'New York University': 'NYU'
       };
-      
+
       const actualCollegeName = collegeNameMapping[backendCollegeName] || backendCollegeName;
       console.log('  - actualCollegeName (after mapping):', actualCollegeName);
-      
+
       // CRITICAL: Validate college name before setting
       if (!actualCollegeName || actualCollegeName === 'Selected College' || actualCollegeName.startsWith('college_')) {
         console.error('❌ ERROR: Invalid college name detected:', actualCollegeName);
@@ -473,18 +473,18 @@ export default function CalculationsPage() {
         setCollegeName(actualCollegeName);
         console.log('✅ College name state updated to:', actualCollegeName);
       }
-      
+
       // Load zipcode from localStorage
       const savedZipcode = localStorage.getItem('userZipcode');
       if (savedZipcode) {
         setZipcode(savedZipcode);
       }
-        
+
         // Use real college data from backend response
          const collegeStats: CollegeStats = {
            collegeName: actualCollegeName, // Use college name from backend
            city: result.college_data?.city || 'Unknown',
-           state: result.college_data?.state || 'Unknown', 
+           state: result.college_data?.state || 'Unknown',
            isPublic: result.college_data?.is_public || false,
            acceptanceRateOfficial: Math.round((result.acceptance_rate || 0.15) * 100),
           outcome: {
@@ -520,7 +520,7 @@ export default function CalculationsPage() {
           },
           tags: [
             result.college_data?.financial_aid_policy || 'Need-Blind',
-            'Meets Full Need', 
+            'Meets Full Need',
             result.college_data?.test_policy || 'Test-Optional'
           ],
           facts: {
@@ -579,7 +579,7 @@ export default function CalculationsPage() {
       <div className="min-h-screen bg-ROX_BLACK flex items-center justify-center">
         <div className="text-center">
           <p className="text-white mb-4">No college data available</p>
-          <button 
+          <button
             onClick={() => router.push('/college-selection')}
             className="px-6 py-2 bg-ROX_GOLD text-black rounded-lg font-semibold hover:bg-ROX_GOLD/80 transition-colors"
           >
@@ -631,10 +631,22 @@ export default function CalculationsPage() {
   const booksAmount = d.costs?.books ?? 1000;
   const otherAmount = d.costs?.other ?? 2000;
 
-  const tuitionLineAmount = zipcodeTuitionData?.success
-    ? zipcodeTuitionData.tuition ??
-      (zipcodeTuitionData.is_in_state ? displayInStateTuition : displayOutStateTuition || displayInStateTuition)
-    : (zipcodeTuitionData?.is_in_state ? displayInStateTuition : displayOutStateTuition || displayInStateTuition);
+  const zipcodeTuitionSuccess = Boolean(zipcodeTuitionData?.success);
+  const zipcodeTuitionValue = zipcodeTuitionSuccess ? zipcodeTuitionData?.tuition : undefined;
+  const hasZipcodeTuitionNumber =
+    typeof zipcodeTuitionValue === 'number' && !Number.isNaN(zipcodeTuitionValue);
+  const resolvedZipcodeState = zipcodeTuitionSuccess ? zipcodeTuitionData?.is_in_state : null;
+
+  const tuitionFallbackByState =
+    resolvedZipcodeState === true
+      ? displayInStateTuition
+      : resolvedZipcodeState === false
+        ? displayOutStateTuition
+        : (displayOutStateTuition ?? displayInStateTuition);
+
+  const tuitionLineAmount = hasZipcodeTuitionNumber
+    ? (zipcodeTuitionValue as number)
+    : (tuitionFallbackByState ?? 0);
 
   const totalCost =
     tuitionLineAmount +
@@ -656,7 +668,7 @@ export default function CalculationsPage() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 relative z-10">
         {/* Header */}
-        <motion.div 
+        <motion.div
           className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -700,7 +712,7 @@ export default function CalculationsPage() {
         </motion.div>
 
         {/* Warning */}
-        <motion.div 
+        <motion.div
           className="bg-ROX_DARK_GRAY border border-ROX_GOLD/30 rounded-2xl p-4 flex gap-3 mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -722,7 +734,7 @@ export default function CalculationsPage() {
           {/* Main Column - Expanded */}
           <div className="lg:col-span-9 space-y-6">
             {/* Outcome Distribution */}
-            <motion.div 
+            <motion.div
               className="relative bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/60 to-ROX_BLACK/80 border border-ROX_GOLD/30 rounded-3xl p-6 backdrop-blur-xl overflow-hidden group"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -752,7 +764,7 @@ export default function CalculationsPage() {
             </motion.div>
 
             {/* Subjects Chart */}
-            <motion.div 
+            <motion.div
               className="relative bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/60 to-ROX_BLACK/80 border border-ROX_GOLD/30 rounded-3xl p-6 backdrop-blur-xl overflow-hidden group"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -785,7 +797,7 @@ export default function CalculationsPage() {
 
 
             {/* Tuition */}
-            <motion.div 
+            <motion.div
               className="relative bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/60 to-ROX_BLACK/80 border border-ROX_GOLD/30 rounded-3xl p-6 backdrop-blur-xl overflow-hidden group"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -872,7 +884,7 @@ export default function CalculationsPage() {
           {/* Sidebar - Reduced */}
           <div className="lg:col-span-3 lg:sticky lg:top-24 h-fit space-y-6">
             {/* Your Chance Card */}
-            <motion.div 
+            <motion.div
               className="relative bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/60 to-ROX_BLACK/80 border border-ROX_GOLD/30 rounded-3xl p-8 backdrop-blur-xl overflow-hidden group"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -892,7 +904,7 @@ export default function CalculationsPage() {
 
 
             {/* Outcome Snapshot Card */}
-            <motion.div 
+            <motion.div
               className="relative bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/60 to-ROX_BLACK/80 border border-ROX_GOLD/30 rounded-3xl p-6 backdrop-blur-xl overflow-hidden group"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -919,7 +931,7 @@ export default function CalculationsPage() {
 
         {/* Areas to Improve - Professional Design - Full Width */}
         <div className="mt-12 -mx-4 md:-mx-8 px-6">
-          <motion.div 
+          <motion.div
             className="relative bg-black border border-yellow-500/30 rounded-3xl p-8 backdrop-blur-xl overflow-hidden group w-full shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_20px_60px_rgba(0,0,0,0.7)]"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -958,8 +970,8 @@ export default function CalculationsPage() {
                       <div>
                         <p className="text-red-400 font-semibold">Failed to load improvement analysis</p>
                         <p className="text-red-300 text-sm mt-1">{improvementError}</p>
-                        <button 
-                          onClick={() => window.location.reload()} 
+                        <button
+                          onClick={() => window.location.reload()}
                           className="mt-2 px-3 py-1 bg-red-500/20 text-red-400 rounded-lg text-sm hover:bg-red-500/30 transition-colors"
                         >
                           Retry
@@ -971,10 +983,10 @@ export default function CalculationsPage() {
 
                 {/* Success State - Show Real Data - Only show if we have actual improvement data */}
                 {/* CRITICAL: Use direct conditional rendering, not IIFE, to ensure React properly tracks state changes */}
-                {improvementData && 
-                 improvementData.improvements && 
-                 Array.isArray(improvementData.improvements) && 
-                 improvementData.improvements.length > 0 && 
+                {improvementData &&
+                 improvementData.improvements &&
+                 Array.isArray(improvementData.improvements) &&
+                 improvementData.improvements.length > 0 &&
                  !improvementLoading && (
                   <>
                     {visibleImprovements.length > 0 ? (
@@ -1027,8 +1039,8 @@ export default function CalculationsPage() {
 
                 {/* No Data State - Only show if we truly have no data AND not loading AND no error */}
                 {/* CRITICAL: Make sure this doesn't conflict with Success State by checking improvementData.improvements explicitly */}
-                {!improvementLoading && 
-                 !improvementError && 
+                {!improvementLoading &&
+                 !improvementError &&
                  (!improvementData || !improvementData.improvements || !Array.isArray(improvementData.improvements) || improvementData.improvements.length === 0) && (
                   <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                       <div className="mb-4">
@@ -1047,7 +1059,7 @@ export default function CalculationsPage() {
         </div>
 
         {/* Footer Meta */}
-        <motion.div 
+        <motion.div
           className="mt-8 text-xs text-neutral-500"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

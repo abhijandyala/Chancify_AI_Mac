@@ -1041,19 +1041,72 @@ const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
   
   // Set up worker for browser environment
   if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    // Use CDN worker for browser builds
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.2.67'}/pdf.worker.min.js`
+    // Get the actual installed version from the library
+    const version = pdfjsLib.version || '4.10.38'
+    
+    // Use jsdelivr CDN which is reliable and supports version ranges
+    // For v4.x, the worker is typically at build/pdf.worker.min.mjs
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
   }
 
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
-  let text = ''
-  for (let i = 1; i <= pdf.numPages; i += 1) {
-    const page = await pdf.getPage(i)
-    const content = await page.getTextContent()
-    const strings = content.items.map((item: any) => ('str' in item ? item.str : '')).join(' ')
-    text += strings + '\n'
+  // Try parsing with worker first, fallback to main thread if worker fails
+  const parsePdf = async (disableWorker = false) => {
+    const options: any = {
+      data: new Uint8Array(arrayBuffer),
+      useWorkerFetch: !disableWorker,
+      isEvalSupported: false,
+      useSystemFonts: true,
+      verbosity: 0 // Reduce console noise
+    }
+    
+    // If worker is disabled, don't set workerSrc
+    if (disableWorker && pdfjsLib.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+    }
+    
+    const pdf = await pdfjsLib.getDocument(options).promise
+    
+    let text = ''
+    for (let i = 1; i <= pdf.numPages; i += 1) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const strings = content.items.map((item: any) => ('str' in item ? item.str : '')).join(' ')
+      text += strings + '\n'
+    }
+    return text
   }
-  return text
+
+  try {
+    // Try with worker first
+    return await parsePdf(false)
+  } catch (error) {
+    // If worker fails, try without worker (main thread - slower but more reliable)
+    if (error instanceof Error && (error.message.includes('worker') || error.message.includes('Failed to fetch'))) {
+      console.warn('PDF worker failed, falling back to main thread parsing')
+      try {
+        return await parsePdf(true)
+      } catch (fallbackError) {
+        console.error('PDF parsing error (fallback):', fallbackError)
+        if (fallbackError instanceof Error) {
+          if (fallbackError.message.includes('password') || fallbackError.message.includes('encrypted')) {
+            throw new Error('This PDF is password protected. Please remove the password and try again.')
+          }
+          throw new Error(`Failed to parse PDF: ${fallbackError.message}`)
+        }
+        throw new Error('Failed to parse PDF: Unknown error')
+      }
+    }
+    
+    // Handle other errors
+    console.error('PDF parsing error:', error)
+    if (error instanceof Error) {
+      if (error.message.includes('password') || error.message.includes('encrypted')) {
+        throw new Error('This PDF is password protected. Please remove the password and try again.')
+      }
+      throw new Error(`Failed to parse PDF: ${error.message}`)
+    }
+    throw new Error('Failed to parse PDF: Unknown error')
+  }
 }
 
 const extractDocxText = async (arrayBuffer: ArrayBuffer) => {

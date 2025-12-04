@@ -195,6 +195,7 @@ function ImprovementCard({ area, current, target, impact, priority, description,
   description?: string;
   actionable_steps?: string[];
 }) {
+  const displayImpact = Math.min(Math.max(impact ?? 0, 0), 0.5); // clamp to avoid overstating impact
   return (
     <motion.div
       className="relative group rounded-2xl bg-black border border-yellow-500/30 p-7 md:p-8 hover:border-yellow-400/60 transition-all duration-300 min-h-[420px] shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_10px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_0_1px_rgba(234,179,8,0.25),0_14px_40px_rgba(0,0,0,0.7)]"
@@ -258,7 +259,7 @@ function ImprovementCard({ area, current, target, impact, priority, description,
             <span className="text-xs text-neutral-400 tracking-wide uppercase">Impact</span>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-400" />
-              <span className="text-xl font-bold text-green-400">+{impact}%</span>
+              <span className="text-xl font-bold text-green-400">+{displayImpact.toFixed(2)}%</span>
             </div>
           </div>
         </div>
@@ -556,11 +557,54 @@ export default function CalculationsPage() {
   // Compute combined impact based only on visible items, cap at 35% to mirror backend logic
   // MUST be calculated after hooks but before early returns
   const combinedVisibleImpact = React.useMemo(() => {
-    return Math.min(
-      visibleImprovements.reduce((sum: number, imp: any) => sum + (imp.impact || 0), 0),
-      35
-    )
+    const partialSum = visibleImprovements.reduce((sum: number, imp: any) => sum + Math.min(Math.max(imp.impact || 0, 0), 0.5), 0)
+    return Math.min(partialSum, 5) // keep combined uplift modest
   }, [visibleImprovements])
+
+  // Build MISC-specific evaluation with conservative contributions
+  const miscEvaluations = React.useMemo(() => {
+    const items: string[] = Array.isArray(userProfile?.misc) ? userProfile.misc.slice(0, 12) : []
+    const rows: { item: string; feedback: string; contribution: number }[] = []
+    let total = 0
+    const add = (item: string, base: number, feedback: string) => {
+      rows.push({ item, feedback, contribution: base })
+      total += base
+    }
+    items.forEach((raw) => {
+      const text = (raw || '').trim()
+      if (!text) return
+      const lower = text.toLowerCase()
+      if (lower.includes('research') || lower.includes('lab') || lower.includes('published')) {
+        add(text, 0.35, 'Strong research signal. Keep results concise.')
+      } else if (lower.includes('intern')) {
+        add(text, 0.3, 'Internship adds practical impact. Include scope and outcome.')
+      } else if (lower.includes('competition') || lower.includes('olympiad') || lower.includes('contest') || lower.includes('hackathon')) {
+        add(text, 0.25, 'Competition credit. Specify tier/result for clarity.')
+      } else if (lower.includes('national') || lower.includes('finalist')) {
+        add(text, 0.35, 'National-level distinction. Keep highlighted.')
+      } else if (lower.includes('state')) {
+        add(text, 0.25, 'State-level recognition. Good supporting point.')
+      } else if (lower.includes('president') || lower.includes('captain') || lower.includes('director') || lower.includes('lead')) {
+        add(text, 0.2, 'Leadership role noted. Add scope/impact if possible.')
+      } else if (lower.includes('volunteer') || lower.includes('service') || lower.includes('outreach')) {
+        add(text, 0.15, 'Service contribution. Quantify hours/impact for clarity.')
+      } else if (lower.includes('summer program') || lower.includes('institute') || lower.includes('fellowship')) {
+        add(text, 0.2, 'Summer program adds rigor. Mention selectivity/outputs.')
+      } else if (lower.includes('job') || lower.includes('work') || lower.includes('employment') || lower.includes('cashier') || lower.includes('barista')) {
+        add(text, 0.15, 'Work experience shows responsibility. Include hours/role.')
+      } else if (lower.includes('startup') || lower.includes('founder') || lower.includes('venture') || lower.includes('project')) {
+        add(text, 0.2, 'Project/venture noted. Outcomes/traction strengthen it.')
+      } else {
+        add(text, 0.08, 'Good highlight. Keep concise and outcome-focused.')
+      }
+    })
+    const cap = 1.2
+    if (total > cap) {
+      const scale = cap / total
+      return rows.map((r) => ({ ...r, contribution: parseFloat((r.contribution * scale).toFixed(3)) }))
+    }
+    return rows.map((r) => ({ ...r, contribution: parseFloat(r.contribution.toFixed(3)) }))
+  }, [userProfile?.misc])
 
   // Early returns - MUST come after all hooks
   if (isLoading) {
@@ -1017,6 +1061,35 @@ export default function CalculationsPage() {
                             </div>
                           </div>
                         </div>
+
+                        {miscEvaluations.length > 0 && (
+                          <div className="mt-6 p-6 rounded-xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-2 bg-emerald-500/20 rounded-lg">
+                                <Info className="h-5 w-5 text-emerald-300" />
+                              </div>
+                              <div>
+                                <p className="font-bold text-white text-xl">Specific Evaluation</p>
+                                <p className="text-sm text-neutral-300/80">Key MISC highlights with conservative contribution estimates.</p>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              {miscEvaluations.map((row, idx) => (
+                                <div key={idx} className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5">
+                                  <div className="mt-1 h-2 w-2 rounded-full bg-emerald-300" />
+                                  <div className="flex-1">
+                                    <p className="text-sm text-white">{row.item}</p>
+                                    <p className="text-xs text-neutral-300/80">{row.feedback}</p>
+                                  </div>
+                                  <div className="text-xs font-semibold text-emerald-300">+{row.contribution.toFixed(2)}%</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 text-xs text-neutral-400">
+                              Total MISC lift is capped and conservative to avoid overstatement.
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">

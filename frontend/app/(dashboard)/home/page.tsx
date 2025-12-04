@@ -7,7 +7,7 @@ import { InfoModal } from '@/components/ui/InfoModal'
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { COLLEGES } from '@/lib/colleges'
 import { FACTOR_DESCRIPTIONS } from '@/lib/factorDescriptions'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   GraduationCap,
   Star,
@@ -97,37 +97,37 @@ const MISC_CATEGORY_SEQUENCE: MiscCategory[] = [
 const SHOW_PARSE_DEBUG_PANEL = process.env.NEXT_PUBLIC_PARSE_DEBUG === 'true'
 
 const initialProfile: Profile = {
-  gpa_unweighted: '',
-  gpa_weighted: '',
-  sat: '',
-  act: '',
-  rigor: '5',
+    gpa_unweighted: '',
+    gpa_weighted: '',
+    sat: '',
+    act: '',
+    rigor: '5',
   ap_count: '',
   honors_count: '',
   class_rank_percentile: '',
   class_size: '',
-  extracurricular_depth: '5',
-  leadership_positions: '5',
-  awards_publications: '5',
-  passion_projects: '5',
-  business_ventures: '5',
-  volunteer_work: '5',
-  research_experience: '5',
-  portfolio_audition: '5',
-  essay_quality: '5',
-  recommendations: '5',
-  interview: '5',
-  demonstrated_interest: '5',
-  legacy_status: '5',
-  hs_reputation: '5',
-  major: '',
-  college: '',
-  geographic_diversity: '5',
-  plan_timing: '5',
-  geography_residency: '5',
-  firstgen_diversity: '5',
-  ability_to_pay: '5',
-  policy_knob: '5',
+    extracurricular_depth: '5',
+    leadership_positions: '5',
+    awards_publications: '5',
+    passion_projects: '5',
+    business_ventures: '5',
+    volunteer_work: '5',
+    research_experience: '5',
+    portfolio_audition: '5',
+    essay_quality: '5',
+    recommendations: '5',
+    interview: '5',
+    demonstrated_interest: '5',
+    legacy_status: '5',
+    hs_reputation: '5',
+    major: '',
+    college: '',
+    geographic_diversity: '5',
+    plan_timing: '5',
+    geography_residency: '5',
+    firstgen_diversity: '5',
+    ability_to_pay: '5',
+    policy_knob: '5',
   conduct_record: '9',
   misc: []
 }
@@ -378,15 +378,19 @@ export default function HomePage() {
           const trimmedCurrent = currentValue.trim()
           const incomingValue = (value as string).trim()
           const defaultValue = PROFILE_FIELD_DEFAULTS[typedKey] ?? ''
-          const userHasValue = userEditedFields.has(typedKey)
           const matchesDefault = defaultValue.trim() === trimmedCurrent
-          const canAutoFill = !userHasValue && (!trimmedCurrent || matchesDefault)
+          const hasExistingValue = trimmedCurrent && trimmedCurrent !== defaultValue.trim()
 
-          if (canAutoFill) {
+          // If field is empty or has default value, auto-fill it
+          if (!trimmedCurrent || matchesDefault) {
             blankUpdates[typedKey] = incomingValue
-          } else if (trimmedCurrent === incomingValue) {
+          }
+          // If values match exactly, keep it
+          else if (trimmedCurrent === incomingValue) {
             keptFields.add(typedKey)
-          } else {
+          }
+          // If field has a non-default value and incoming differs, show conflict
+          else {
             conflictUpdates[typedKey] = incomingValue
           }
         }
@@ -1232,9 +1236,9 @@ export default function HomePage() {
                 <Plus className="w-4 h-4" />
                 <span>Add Note</span>
               </button>
-            </div>
           </div>
-        </motion.section>
+        </div>
+      </motion.section>
 
         {/* Intended Major */}
         <motion.section {...enter} className="mb-8 sm:mb-10 lg:mb-12">
@@ -1344,131 +1348,203 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {isOverrideModalOpen && pendingOverrides && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        <AnimatePresence>
+          {isOverrideModalOpen && pendingOverrides && (
+            <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center px-4 py-6"
+          >
+            {/* Enhanced blurred backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
               onClick={skipOverrides}
             />
-            <div className="relative w-full max-w-2xl bg-[#0b0b0f] border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-yellow-500/20 text-yellow-300 rounded-lg">
-                  <ListChecks className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Override existing values?</h3>
-                  <p className="text-sm text-gray-400 mt-1">
-                    We found application details for fields you already filled in. Decide which ones
-                    should replace your current entries.
-                  </p>
-                </div>
-              </div>
 
-              <div className="mt-4 flex flex-col gap-3 text-sm text-gray-300 sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  {selectedOverrideCount} of {pendingOverrideFields.length}{' '}
-                  {pendingOverrideFields.length === 1 ? 'field' : 'fields'} set to use application values
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setAllOverrideSelections(false)}
-                    className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:bg-white/5 transition"
-                  >
-                    Keep all
-                  </button>
-                  <button
-                    onClick={() => setAllOverrideSelections(true)}
-                    className="px-3 py-1.5 rounded-lg border border-yellow-400/40 text-xs text-yellow-200 hover:bg-yellow-400/10 transition"
-                  >
-                    Use all
-                  </button>
-                </div>
-              </div>
+            {/* Modal content with smooth animation */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                mass: 0.8
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl bg-gradient-to-br from-[#0f0f15] to-[#08080b] border border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/5 via-transparent to-transparent pointer-events-none" />
 
-              <div className="mt-5 max-h-64 overflow-y-auto pr-1 space-y-3">
-                {pendingOverrideFields.map(field => {
-                  const useApplication = overrideSelections[field] ?? true
-                  return (
-                    <div
-                      key={field}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="text-white font-semibold">
+              <div className="relative p-6 sm:p-8">
+                {/* Header */}
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-start gap-4 mb-6"
+                >
+                  <div className="p-3 bg-gradient-to-br from-yellow-400/20 to-yellow-500/10 text-yellow-300 rounded-2xl border border-yellow-400/30 shadow-lg shadow-yellow-400/10">
+                    <ListChecks className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-white mb-2">Override Existing Values?</h3>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      We found application details that differ from your current entries. Choose which values you'd like to keep.
+                    </p>
+                  </div>
+                </motion.div>
+
+                {/* Summary bar */}
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="mb-6 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="text-sm text-gray-300">
+                      <span className="font-semibold text-white">{selectedOverrideCount}</span> of{' '}
+                      <span className="font-semibold text-white">{pendingOverrideFields.length}</span>{' '}
+                      {pendingOverrideFields.length === 1 ? 'field' : 'fields'} selected
+                    </div>
+                    <div className="flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setAllOverrideSelections(false)}
+                        className="px-4 py-2 rounded-xl border border-white/20 bg-white/5 text-xs font-medium text-gray-300 hover:bg-white/10 hover:border-white/30 transition-all"
+                      >
+                        Keep All
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setAllOverrideSelections(true)}
+                        className="px-4 py-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 text-xs font-medium text-yellow-200 hover:bg-yellow-400/20 hover:border-yellow-400/60 transition-all"
+                      >
+                        Use All
+                      </motion.button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Fields list */}
+                <div className="max-h-[400px] overflow-y-auto pr-2 space-y-3 mb-6 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+                  {pendingOverrideFields.map((field, index) => {
+                    const useApplication = overrideSelections[field] ?? true
+                    return (
+                      <motion.div
+                        key={field}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + index * 0.05 }}
+                        className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] p-5 backdrop-blur-sm hover:border-white/20 transition-all"
+                      >
+                        <div className="mb-4">
+                          <div className="text-white font-semibold text-sm mb-3">
                             {FIELD_LABELS[field] || field}
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            Current:&nbsp;
-                            <span className="text-white">
-                              {typeof profile[field] === 'string' && profile[field] ? profile[field] : '—'}
-                            </span>
-                          </div>
-                          <div className="text-xs text-yellow-200 mt-1">
-                            Application:&nbsp;
-                            <span className="text-white">
-                              {pendingOverrides[field] ?? '—'}
-                            </span>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs">
+                              <div className="w-2 h-2 rounded-full bg-gray-400" />
+                              <span className="text-gray-400">Current:</span>
+                              <span className="text-white font-medium">
+                                {typeof profile[field] === 'string' && profile[field] ? profile[field] : '—'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                              <span className="text-gray-400">Application:</span>
+                              <span className="text-white font-medium">
+                                {pendingOverrides[field] ?? '—'}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-3 flex flex-col gap-2 text-xs sm:flex-row">
-                        <button
-                          onClick={() => toggleOverrideSelection(field, false)}
-                          className={`flex-1 rounded-xl border px-3 py-2 transition ${
-                            !useApplication
-                              ? 'border-white/30 bg-white/10 text-white'
-                              : 'border-white/10 text-gray-300 hover:bg-white/5'
-                          }`}
-                        >
-                          Keep my value
-                        </button>
-                        <button
-                          onClick={() => toggleOverrideSelection(field, true)}
-                          className={`flex-1 rounded-xl border px-3 py-2 transition ${
-                            useApplication
-                              ? 'border-yellow-400/40 bg-yellow-400/20 text-yellow-50'
-                              : 'border-white/10 text-gray-300 hover:bg-white/5'
-                          }`}
-                        >
-                          Use application value
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={skipOverrides}
-                  className="px-4 py-3 rounded-xl border border-white/15 text-white/80 hover:bg-white/10 transition sm:flex-1"
-                >
-                  Keep Current Values
-                </button>
-                <div className="flex flex-col gap-3 sm:flex-1">
-                  <button
-                    onClick={applyAllOverrides}
-                    className="px-4 py-3 rounded-xl border border-yellow-400/40 text-yellow-100 hover:bg-yellow-400/10 transition"
-                  >
-                    Apply All ({pendingOverrideFields.length})
-                  </button>
-                  <button
-                    onClick={applySelectedOverrides}
-                    disabled={!selectedOverrideCount}
-                    className={`px-4 py-3 rounded-xl font-semibold transition ${
-                      selectedOverrideCount
-                        ? 'bg-yellow-400 text-black hover:bg-yellow-300'
-                        : 'bg-white/10 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    Apply Selected ({selectedOverrideCount})
-                  </button>
+                        <div className="flex gap-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => toggleOverrideSelection(field, false)}
+                            className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium transition-all ${
+                              !useApplication
+                                ? 'border-white/40 bg-white/15 text-white shadow-lg shadow-white/10'
+                                : 'border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            Keep Current
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => toggleOverrideSelection(field, true)}
+                            className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium transition-all ${
+                              useApplication
+                                ? 'border-yellow-400/50 bg-yellow-400/20 text-yellow-100 shadow-lg shadow-yellow-400/20'
+                                : 'border-white/10 text-gray-400 hover:bg-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            Use Application
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
                 </div>
+
+                {/* Footer actions */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex flex-col gap-3 sm:flex-row pt-4 border-t border-white/10"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={skipOverrides}
+                    className="px-6 py-3 rounded-xl border border-white/20 bg-white/5 text-white/90 hover:bg-white/10 hover:border-white/30 transition-all font-medium sm:flex-1"
+                  >
+                    Cancel
+                  </motion.button>
+                  <div className="flex flex-col gap-3 sm:flex-1">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={applyAllOverrides}
+                      className="px-6 py-3 rounded-xl border border-yellow-400/40 bg-yellow-400/10 text-yellow-100 hover:bg-yellow-400/20 hover:border-yellow-400/60 transition-all font-medium"
+                    >
+                      Apply All ({pendingOverrideFields.length})
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: selectedOverrideCount ? 1.02 : 1 }}
+                      whileTap={{ scale: selectedOverrideCount ? 0.98 : 1 }}
+                      onClick={applySelectedOverrides}
+                      disabled={!selectedOverrideCount}
+                      className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                        selectedOverrideCount
+                          ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-black hover:from-yellow-300 hover:to-yellow-400 shadow-lg shadow-yellow-400/30'
+                          : 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/10'
+                      }`}
+                    >
+                      Apply Selected ({selectedOverrideCount})
+                    </motion.button>
+                  </div>
+                </motion.div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

@@ -473,9 +473,9 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
   for (const item of chunkedDeduped) {
     let isSimilarToLonger = false
     const itemNorm = normalizeMiscKey(item)
-    
+
     if (!itemNorm) continue
-    
+
     for (const other of chunkedDeduped) {
       if (item !== other && other.length >= item.length) {
         const otherNorm = normalizeMiscKey(other)
@@ -509,13 +509,16 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     entry => !/\b(parent|mother|father|guardian)\b/i.test(entry.replace(/[^a-zA-Z\s]/g, '').trim())
   )
 
+  // Fix truncated and nonsensical entries
+  const fixedEntries = parentFiltered.map(item => fixTruncatedEntry(item))
+
   // Final aggressive deduplication pass using semantic similarity
   // Run deduplication multiple times to catch any remaining duplicates
-  let finalDeduped = dedupeEntries(parentFiltered)
-  
+  let finalDeduped = dedupeEntries(fixedEntries)
+
   // Run one more time to catch any that slipped through
   finalDeduped = dedupeEntries(finalDeduped)
-  
+
   // One more pass: remove any entries that are clearly subsets or near-duplicates
   const finalFiltered: string[] = []
   const seenFinal = new Map<string, string>() // Map normalized key -> original entry
@@ -551,7 +554,150 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     }
   }
 
-  return sortMiscEntries(finalFiltered)
+  // Final pass: ensure all entries make sense and end properly
+  const finalCleaned = finalFiltered
+    .map(item => fixTruncatedEntry(item))
+    .filter(item => item && item.length >= 10) // Remove any that became too short after fixing
+
+  return sortMiscEntries(finalCleaned)
+}
+
+/**
+ * Fix truncated entries that don't make sense due to mid-word or mid-sentence cuts
+ * Ensures entries end at complete sentences or logical phrase boundaries
+ * Examples: "younge" -> remove, "continuing to mentor younge" -> "continuing to mentor"
+ */
+function fixTruncatedEntry(entry: string): string {
+  if (!entry || entry.length < 5) return entry
+
+  let fixed = entry.trim()
+  const original = fixed
+
+  // First, try to find and use complete sentences if available
+  const sentenceMatches = fixed.match(/[^.!?]+[.!?]+/g)
+  if (sentenceMatches && sentenceMatches.length > 0) {
+    // If entry ends with complete sentence, use that
+    if (/[.!?]$/.test(fixed.trim())) {
+      // Already ends properly, but check for incomplete last sentence
+      const lastSentence = sentenceMatches[sentenceMatches.length - 1]
+      if (lastSentence.length > 15) {
+        // Use all complete sentences
+        fixed = sentenceMatches.join(' ').trim()
+      }
+    } else {
+      // Entry doesn't end with punctuation - likely truncated
+      // Use all complete sentences, excluding the incomplete last one
+      if (sentenceMatches.length > 1) {
+        fixed = sentenceMatches.slice(0, -1).join(' ').trim()
+      } else if (sentenceMatches.length === 1) {
+        // Only one sentence but entry continues - check if we should keep it
+        const afterSentence = fixed.slice(fixed.indexOf(sentenceMatches[0]) + sentenceMatches[0].length).trim()
+        if (afterSentence.length < 20) {
+          // Short continuation, likely incomplete - use the sentence
+          fixed = sentenceMatches[0].trim()
+        }
+      }
+    }
+  }
+
+  // Split into words for further analysis
+  const words = fixed.split(/\s+/)
+  if (words.length === 0) return entry
+
+  // Check the last word for truncation indicators
+  const lastWord = words[words.length - 1]
+  const lastWordClean = lastWord.replace(/[.,;:!?\-–—'"•]/g, '').toLowerCase()
+
+  // Detect obvious truncation: last word looks incomplete
+  const looksTruncated = (word: string): boolean => {
+    const clean = word.replace(/[.,;:!?\-–—'"•]/g, '').toLowerCase()
+    
+    // Very short words (1-2 chars) that aren't common
+    if (clean.length <= 2) {
+      const commonShortWords = new Set(['a', 'i', 'to', 'in', 'at', 'on', 'of', 'or', 'an', 'as', 'is', 'it', 'if', 'be', 'we', 'he', 'so', 'no', 'me', 'my', 'do', 'up', 'us', 'am', 'pm'])
+      return !commonShortWords.has(clean)
+    }
+
+    // Words 3-6 chars that might be truncated
+    if (clean.length >= 3 && clean.length <= 6) {
+      const hasVowel = /[aeiouy]/.test(clean)
+      const commonSuffixes = /(ed|ing|er|ly|tion|sion|ment|ness|ful|less|able|ible|est|ive|ous|al|ic|ize|ise|s|es)$/
+      const endsWithCommonSuffix = commonSuffixes.test(clean)
+      const endsWithPunctuation = /[.!?:]$/.test(word)
+
+      // If it has vowels but doesn't end with a common suffix/pattern, and no ending punctuation,
+      // it might be truncated (e.g., "younge", "mentor younge", "r")
+      if (hasVowel && !endsWithCommonSuffix && !endsWithPunctuation) {
+        const unusualEndings = /[bcdfghjklmnpqrstvwxz]{2,}$|^[bcdfghjklmnpqrstvwxz]{3,}$/
+        if (unusualEndings.test(clean.slice(-2)) || !/[aeiou]/.test(clean.slice(-3))) {
+          return true
+        }
+      }
+    }
+
+    // Words that end with incomplete patterns
+    if (clean.length > 6 && !/[aeiou]/.test(clean.slice(-4))) {
+      // Last 4 chars have no vowels - likely truncated
+      return true
+    }
+
+    return false
+  }
+
+  // Remove truncated last words
+  while (words.length > 0 && looksTruncated(words[words.length - 1])) {
+    words.pop()
+  }
+
+  // If we removed words, reconstruct
+  if (words.length > 0) {
+    fixed = words.join(' ').trim()
+  }
+
+  // Ensure entry ends properly - add period if it's a complete thought but missing punctuation
+  if (fixed && fixed.length > 20 && !/[.!?:]$/.test(fixed)) {
+    // Check if it ends with a complete phrase (not mid-sentence)
+    const lastFewWords = words.slice(-3).join(' ').toLowerCase()
+    const incompletePhrases = /\b(to|from|with|for|in|on|at|the|a|an|and|or|but)\s*$/
+    
+    // If doesn't end with incomplete phrase, it's probably a complete thought
+    if (!incompletePhrases.test(fixed)) {
+      // Check if last word could be a complete thought
+      const lastWordFinal = words[words.length - 1].toLowerCase().replace(/[.,;:!?]/g, '')
+      const completeEndings = ['years', 'year', 'hours', 'hrs', 'members', 'member', 'award', 'honor', 'team', 'club', 'school', 'university', 'college']
+      
+      if (completeEndings.some(ending => lastWordFinal.endsWith(ending))) {
+        fixed += '.'
+      } else if (words.length >= 5 && !fixed.match(/^(SAT|ACT|AP|Honors?|Award|Course)/i)) {
+        // Long enough entry without prefix - likely complete, add period
+        fixed += '.'
+      }
+    }
+  }
+
+  // Clean up spacing and punctuation
+  fixed = fixed
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([.,;:!?])/g, '$1') // Remove space before punctuation
+    .replace(/([.!?])\1+/g, '$1') // Remove duplicate punctuation
+    .trim()
+
+  // Capitalize first letter if needed
+  if (fixed && fixed.length > 0 && /^[a-z]/.test(fixed)) {
+    fixed = fixed.charAt(0).toUpperCase() + fixed.slice(1)
+  }
+
+  // If entry is now too short or wasn't improved, return original
+  if (fixed.length < Math.max(10, original.length * 0.5)) {
+    return original
+  }
+
+  // If we didn't actually fix anything meaningful, return original
+  if (fixed === original || Math.abs(fixed.length - original.length) < 3) {
+    return original
+  }
+
+  return fixed
 }
 
 /**
@@ -559,7 +705,7 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
  */
 const normalizeMiscKey = (value: string): string => {
   let normalized = value.toLowerCase()
-  
+
   // Remove common prefixes that add no semantic meaning
   const prefixesToRemove = [
     /^testing\s+detail\s*[:•\-]?\s*/i,
@@ -574,11 +720,11 @@ const normalizeMiscKey = (value: string): string => {
     /^activities?\s*\(summary\)\s*[:•\-]?\s*/i,
     /^\d+\.\s+/,  // Remove numbered prefixes like "6. Honors & Awards"
   ]
-  
+
   for (const prefix of prefixesToRemove) {
     normalized = normalized.replace(prefix, '')
   }
-  
+
   // Normalize punctuation, spacing, and special characters
   normalized = normalized
     .replace(/[“”]/g, '"')
@@ -589,7 +735,7 @@ const normalizeMiscKey = (value: string): string => {
     .replace(/[.,;:!?]+$/g, '')  // Remove trailing punctuation
     .replace(/^[.,;:!?\s]+/, '')  // Remove leading punctuation/spaces
     .trim()
-  
+
   return normalized
 }
 
@@ -599,19 +745,19 @@ const normalizeMiscKey = (value: string): string => {
 const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
   // Exact match after normalization
   if (norm1 === norm2) return true
-  
+
   // If one is empty after normalization, not similar
   if (!norm1 || !norm2) return false
-  
+
   // If one is contained in the other and they're close in length (handle truncation)
   const shorter = norm1.length < norm2.length ? norm1 : norm2
   const longer = norm1.length >= norm2.length ? norm1 : norm2
-  
+
   // Check if shorter is a substantial substring of longer (handle truncation)
   if (longer.includes(shorter)) {
     const ratio = shorter.length / longer.length
     const lengthDiff = longer.length - shorter.length
-    
+
     // More lenient matching for truncated entries:
     // (1) 65%+ match OR (2) difference is small (<50 chars) and shorter is substantial (>30 chars)
     // OR (3) shorter starts the longer string (likely truncation) and is >25 chars
@@ -620,7 +766,7 @@ const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
       return true
     }
   }
-  
+
   // Try removing common prefixes from both and comparing again
   const removeCommonPrefixes = (s: string) => {
     return s
@@ -628,10 +774,10 @@ const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
       .replace(/^(part-?|full-?)?time\s*/i, '')
       .replace(/^(founder|president|captain|team)\s*/i, '')
   }
-  
+
   const norm1NoPrefix = removeCommonPrefixes(norm1)
   const norm2NoPrefix = removeCommonPrefixes(norm2)
-  
+
   if (norm1NoPrefix !== norm1 || norm2NoPrefix !== norm2) {
     // If removing prefixes changed something, check similarity again
     if (norm1NoPrefix === norm2NoPrefix) return true
@@ -646,7 +792,7 @@ const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
       }
     }
   }
-  
+
   return false
 }
 
@@ -659,19 +805,19 @@ const dedupeEntries = (entries: string[]): string[] => {
   for (const entry of entries) {
     const key = normalizeMiscKey(entry)
     if (!key) continue
-    
+
     if (!exactMap.has(key)) {
       exactMap.set(key, entry.trim())
     }
   }
-  
+
   // Second pass: semantic similarity (catch near-duplicates)
   const semanticDeduped: string[] = []
   const seenSemantic = new Set<string>()
-  
+
   for (const [normKey, originalEntry] of exactMap.entries()) {
     let isDuplicate = false
-    
+
     // Check against all already-seen entries
     for (const seenKey of seenSemantic) {
       if (areSemanticallySimilar(normKey, seenKey)) {
@@ -690,13 +836,13 @@ const dedupeEntries = (entries: string[]): string[] => {
         break
       }
     }
-    
+
     if (!isDuplicate) {
       semanticDeduped.push(originalEntry)
       seenSemantic.add(normKey)
     }
   }
-  
+
   return semanticDeduped
 }
 
@@ -749,8 +895,21 @@ function breakDownLargeChunk(chunk: string): string[] {
   // If splitting produced many sections, use them
   if (sections.length > 2) {
     for (const section of sections) {
-      const trimmed = section.trim()
-      if (trimmed.length > 15 && trimmed.length < 300) {
+      let trimmed = section.trim()
+      
+      // Ensure each section ends at a sentence boundary
+      if (trimmed && !/[.!?:]$/.test(trimmed)) {
+        // Try to find the last complete sentence in this section
+        const sentences = trimmed.match(/[^.!?]+[.!?]+/g)
+        if (sentences && sentences.length > 0) {
+          trimmed = sentences[sentences.length - 1].trim()
+        } else {
+          // No complete sentence, but ensure it ends properly
+          trimmed = fixTruncatedEntry(trimmed)
+        }
+      }
+      
+      if (trimmed && trimmed.length > 15 && trimmed.length < 300) {
         items.push(trimmed)
       }
     }
@@ -769,34 +928,38 @@ function breakDownLargeChunk(chunk: string): string[] {
     for (const pattern of sectionPatterns) {
       const matches = chunk.match(pattern)
       if (matches) {
-        extracted.push(...matches.map(m => m.trim()))
+        extracted.push(...matches.map(m => fixTruncatedEntry(m.trim())))
       }
     }
 
     if (extracted.length > 0) {
-      items.push(...extracted)
+      items.push(...extracted.filter(item => item && item.length > 15))
     } else {
       // Last resort: split by sentences if really long
       const sentences = chunk.match(/[^.!?]+[.!?]+/g) || []
       if (sentences.length > 3) {
-        // Group sentences into logical chunks
+        // Group sentences into logical chunks (always end at sentence boundaries)
         let currentChunk = ''
         for (const sentence of sentences) {
-          if ((currentChunk + sentence).length < 250) {
-            currentChunk += sentence.trim() + ' '
+          const sentenceTrimmed = sentence.trim()
+          if ((currentChunk + sentenceTrimmed).length < 250) {
+            currentChunk += sentenceTrimmed + ' '
           } else {
             if (currentChunk.trim().length > 20) {
-              items.push(currentChunk.trim())
+              // Fix any truncation issues in the chunk
+              items.push(fixTruncatedEntry(currentChunk.trim()))
             }
-            currentChunk = sentence.trim() + ' '
+            currentChunk = sentenceTrimmed + ' '
           }
         }
         if (currentChunk.trim().length > 20) {
-          items.push(currentChunk.trim())
+          // Fix any truncation issues in the final chunk
+          items.push(fixTruncatedEntry(currentChunk.trim()))
         }
       } else {
-        // Can't break down, return as is
-        items.push(chunk)
+        // Can't break down, but still fix truncation
+        const fixed = fixTruncatedEntry(chunk)
+        items.push(fixed)
       }
     }
   }

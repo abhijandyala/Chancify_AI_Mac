@@ -24,7 +24,7 @@ export function MajorSelectionModal({
   // Filter majors based on search query
   const filteredMajors = MAJORS.filter(major =>
     major.toLowerCase().includes(searchQuery.toLowerCase())
-  ).slice(0, 100) // Show more results in modal
+  )
 
   // Close modal when clicking outside
   useEffect(() => {

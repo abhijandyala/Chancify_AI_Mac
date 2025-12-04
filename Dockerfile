@@ -77,4 +77,3 @@ WORKDIR /app/backend
 # Start the application using shell form to expand $PORT
 # Railway sets PORT environment variable at runtime
 CMD python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
-# Force rebuild - Tue Dec  2 22:56:03 EST 2025

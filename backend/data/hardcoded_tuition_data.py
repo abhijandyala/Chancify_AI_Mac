@@ -449,15 +449,14 @@ def get_tuition_data_for_college(college_name: str) -> dict:
             return _with_totals(data)
 
     # Default data if no match found (generic private university costs)
+    # Provide realistic fallback numbers so calculator remains useful
     return _with_totals({
-        "in_state_tuition": 0,
-        "out_state_tuition": 0,
-        "fees": 0,
-        "room_board": 0,
-        "books": 0,
-        "other_expenses": 0,
-        "total_in_state": 0,
-        "total_out_state": 0,
+        "in_state_tuition": 52000,
+        "out_state_tuition": 52000,
+        "fees": 2000,
+        "room_board": 18000,
+        "books": 1200,
+        "other_expenses": 2500,
         "is_private": True
     })
 

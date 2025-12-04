@@ -68,7 +68,10 @@ def fetch_chanceme_results_posts(limit: int) -> List[Dict]:
     return posts
 
 
-def posts_to_csv_rows(posts: List[Dict], college_mapping_path: str | None = None) -> List[Dict]:
+from typing import Optional
+
+
+def posts_to_csv_rows(posts: List[Dict], college_mapping_path: Optional[str] = None) -> List[Dict]:
     mapping = load_college_mapping(college_mapping_path) if college_mapping_path else {}
     rows: List[Dict] = []
     for post in posts:

@@ -95,18 +95,65 @@ def _extract_section_lines(body_lower: str, body: str) -> List[str]:
 def _extract_decisions(text: str) -> List[tuple[str, int]]:
     decisions: List[tuple[str, int]] = []
     patterns = [
-        (r"(accepted|admitted)\\s*:\\s*(.+)", 1),
-        (r"(rejected|denied)\\s*:\\s*(.+)", 0),
+        (r"(accepted|admitted)\\s*[:\\-]\\s*(.+)", 1),
+        (r"(rejected|denied)\\s*[:\\-]\\s*(.+)", 0),
+        (r"(acceptances)\\s*[:\\-]\\s*(.+)", 1),
     ]
-    for line in text.splitlines():
+    lines = text.splitlines()
+
+    # 1) Line-based patterns where colleges are on the same line
+    for line in lines:
         line_clean = normalize_whitespace(line)
         for pat, label in patterns:
             m = re.search(pat, line_clean, re.IGNORECASE)
             if m:
                 tail = m.group(2)
-                parts = [p.strip(" ,.;") for p in tail.split(",") if p.strip(" ,.;")]
+                parts = re.split(r"[;,]", tail)
+                if len(parts) == 1:
+                    parts = re.split(r"\\band\\b", tail, flags=re.IGNORECASE)
                 for college in parts:
-                    decisions.append((college, label))
+                    c = college.strip(" ,.;")
+                    if c:
+                        decisions.append((c, label))
+
+    # 2) Section-based patterns where Accepted/Rejected header is followed by bullets
+    current_label: Optional[int] = None
+    for raw in lines:
+        line = raw.strip()
+        header_hit = False
+        if re.search(r"accepted|admitted|acceptances", line, re.IGNORECASE):
+            current_label = 1
+            header_hit = True
+        elif re.search(r"rejected|denied", line, re.IGNORECASE):
+            current_label = 0
+            header_hit = True
+        elif re.search(r"waitlist", line, re.IGNORECASE):
+            current_label = None  # skip waitlists
+            header_hit = True
+
+        if header_hit:
+            continue
+
+        if current_label is not None:
+            if line.startswith("*") or line.startswith("-"):
+                college = line.lstrip("*- ").strip(" ,.;")
+                if college:
+                    decisions.append((college, current_label))
+            elif line.startswith("#"):  # new section
+                current_label = None
+
+    # Fallback: inline patterns like "Stanford (Accepted)" or "Harvard - Rejected"
+    inline_pat = re.compile(
+        r"([A-Za-z][A-Za-z\\s&.'-]{2,80})\\s*[\\(-]\\s*(accepted|admitted|rejected|denied|waitlisted)\\s*[\\)\\]]?",
+        re.IGNORECASE,
+    )
+    for m in inline_pat.finditer(text):
+        college = normalize_whitespace(m.group(1))
+        status = m.group(2).lower()
+        if status in ("accepted", "admitted"):
+            decisions.append((college, 1))
+        elif status in ("rejected", "denied"):
+            decisions.append((college, 0))
     return decisions
 
 

@@ -4,6 +4,9 @@
 
 import { getApiBaseUrl, withNgrokHeaders } from '@/lib/config';
 
+// Debug logging toggle (for Chrome devtools)
+const DEBUG_PREDICT = process.env.NEXT_PUBLIC_DEBUG_PREDICT === 'true'
+
 // Backend URL configuration - call getApiBaseUrl() each time to support runtime changes
 // This allows the URL to be updated via localStorage or window.__CHANCIFY_API_URL__
 const getAPI_BASE_URL = () => getApiBaseUrl();
@@ -145,6 +148,9 @@ export async function getAdmissionProbability(
 ): Promise<PredictionResponse> {
   try {
     const API_BASE_URL = getAPI_BASE_URL()
+    if (DEBUG_PREDICT) {
+      console.log('[predict] request', { profile })
+    }
     const response = await fetch(`${API_BASE_URL}/api/predict/frontend`, {
       method: 'POST',
       headers: getHeaders(),
@@ -156,6 +162,9 @@ export async function getAdmissionProbability(
     }
 
     const data = await response.json();
+    if (DEBUG_PREDICT) {
+      console.log('[predict] response', { data })
+    }
     return data;
   } catch (error) {
     console.error('Error getting admission probability:', error);

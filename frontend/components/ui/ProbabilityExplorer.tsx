@@ -27,7 +27,8 @@ export default function ProbabilityExplorer({ collegeId, collegeName, initialPro
     try {
       const request: PredictionRequest = {
         ...profileData,
-        college: collegeId
+        college: collegeId,
+        misc: profileData.misc ?? [],
       }
       
       const result = await getAdmissionProbability(request)

@@ -37,7 +37,8 @@ export default function CollegeComparison({ colleges, userProfile }: CollegeComp
       try {
         const request: PredictionRequest = {
           ...userProfile,
-          college: college.id
+          college: college.id,
+          misc: userProfile.misc ?? [],
         }
         
         const result = await getAdmissionProbability(request)

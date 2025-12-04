@@ -248,7 +248,8 @@ def compute_misc_uplift(signals: Dict[str, float], acceptance_rate: float) -> fl
 
     # Cap uplift by selectivity band
     acceptance_rate = float(max(0.02, min(0.98, acceptance_rate or 0.5)))
-    hard_cap = 0.08 if acceptance_rate < 0.15 else 0.1 if acceptance_rate < 0.3 else 0.12
+    # Slightly tempered caps to avoid over-uplift; can be tuned later
+    hard_cap = 0.07 if acceptance_rate < 0.15 else 0.09 if acceptance_rate < 0.3 else 0.11
     uplift = min(uplift, hard_cap)
     return uplift
 

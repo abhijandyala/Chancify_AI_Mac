@@ -39,6 +39,7 @@ export interface PredictionRequest {
   hs_reputation: string;
   major: string;
   college: string;
+  misc?: string[];
 }
 
 export interface CollegeSuggestionsRequest {

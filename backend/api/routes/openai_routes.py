@@ -4,11 +4,15 @@ API endpoint for fetching college information using OpenAI
 
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, List
+from pydantic import BaseModel
 import logging
 from services.openai_service import college_info_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+class ParseApplicationRequest(BaseModel):
+    document_text: str
 
 @router.post("/college-info")
 async def get_college_info(college_name: str) -> Dict[str, Any]:
@@ -77,23 +81,22 @@ async def get_college_info_by_name(college_name: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to fetch college information: {str(e)}")
 
 @router.post("/parse-application")
-async def parse_application_document(request: Dict[str, Any]) -> Dict[str, Any]:
+async def parse_application_document(request: ParseApplicationRequest) -> Dict[str, Any]:
     """
     Parse a college application document using OpenAI to extract structured data.
     This is used as a fallback when frontend regex parsing misses important information.
     
     Args:
-        request: Dictionary with "document_text" key containing the application text
+        request: ParseApplicationRequest with "document_text" containing the application text
         
     Returns:
         Dictionary with extracted fields and miscellaneous notes
     """
     try:
-        document_text = request.get("document_text", "")
-        if not document_text:
-            raise HTTPException(status_code=400, detail="document_text is required")
+        if not request.document_text or not request.document_text.strip():
+            raise HTTPException(status_code=400, detail="document_text is required and cannot be empty")
         
-        result = await college_info_service.parse_application_document(document_text)
+        result = await college_info_service.parse_application_document(request.document_text)
         return result
     except HTTPException:
         raise

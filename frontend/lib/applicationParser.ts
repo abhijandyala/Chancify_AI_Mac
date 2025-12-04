@@ -325,7 +325,8 @@ export const parseApplicationData = async (
   let cleanedMisc = cleanAndDeduplicateMisc(Array.from(miscSet))
 
   // If important fields are missing and OpenAI fallback is enabled, try OpenAI parsing
-  const missingCriticalFields = !satScore && !actScore && !weightedGpa && !unweightedGpa
+  // Trigger OpenAI if: no SAT/ACT found, or missing GPA, or missing other key metrics
+  const missingCriticalFields = (!satScore && !actScore) || (!weightedGpa && !unweightedGpa) || (!apCount && !classRank)
   if (useOpenAIFallback && missingCriticalFields && typeof window !== 'undefined') {
     try {
       const aiResult = await fetchOpenAIParse(rawText)
@@ -338,12 +339,12 @@ export const parseApplicationData = async (
             recordMetric(field, value, value, 'Extracted via OpenAI')
           }
         })
-        
+
         // Merge AI-extracted misc items (avoid duplicates)
         if (aiResult.misc && aiResult.misc.length > 0) {
           aiResult.misc.forEach(item => {
             const normalized = item.trim().toLowerCase()
-            const isDuplicate = cleanedMisc.some(existing => 
+            const isDuplicate = cleanedMisc.some(existing =>
               existing.toLowerCase() === normalized ||
               existing.toLowerCase().includes(normalized) ||
               normalized.includes(existing.toLowerCase())
@@ -381,7 +382,7 @@ async function fetchOpenAIParse(documentText: string): Promise<{
     // Get backend URL from config
     const { getApiBaseUrl } = await import('@/lib/config')
     const backendUrl = getApiBaseUrl()
-    
+
     const response = await fetch(`${backendUrl}/api/openai/parse-application`, {
       method: 'POST',
       headers: {
@@ -425,7 +426,7 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
   // Remove exact duplicates (case-insensitive)
   const unique = new Set<string>()
   const seenLower = new Set<string>()
-  
+
   for (const item of normalized) {
     const lower = item.toLowerCase()
     if (!seenLower.has(lower)) {
@@ -449,13 +450,20 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
   }
 
   // Remove items that are substrings of longer items (keep the longer, more specific one)
+  // But be more conservative - only remove if one item is clearly a subset of another
   const filtered: string[] = []
   for (const item of chunked) {
     let isSubstring = false
     for (const other of chunked) {
-      if (item !== other && other.toLowerCase().includes(item.toLowerCase()) && other.length > item.length) {
-        isSubstring = true
-        break
+      if (item !== other && other.length > item.length) {
+        const itemLower = item.toLowerCase().trim()
+        const otherLower = other.toLowerCase().trim()
+        // Only remove if item is clearly a substring AND the other item is significantly longer
+        // This prevents removing legitimate distinct entries where one just mentions part of another
+        if (otherLower.includes(itemLower) && other.length > item.length * 1.5) {
+          isSubstring = true
+          break
+        }
       }
     }
     if (!isSubstring) {
@@ -472,10 +480,10 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
  */
 function breakDownLargeChunk(chunk: string): string[] {
   const items: string[] = []
-  
+
   // Try to split on common delimiters
   const sections = chunk.split(/(?:\. |\n|• |\* |- |\d+\.\s+)/).filter(s => s.trim().length > 10)
-  
+
   // If splitting produced many sections, use them
   if (sections.length > 2) {
     for (const section of sections) {
@@ -494,7 +502,7 @@ function breakDownLargeChunk(chunk: string): string[] {
       /(Honors?\s+&?\s*Awards?[^:]*:[^•\n]{0,200})/gi,
       /(Parent\s*\d+[^:]*:[^•\n]{0,150})/gi
     ]
-    
+
     const extracted: string[] = []
     for (const pattern of sectionPatterns) {
       const matches = chunk.match(pattern)
@@ -502,7 +510,7 @@ function breakDownLargeChunk(chunk: string): string[] {
         extracted.push(...matches.map(m => m.trim()))
       }
     }
-    
+
     if (extracted.length > 0) {
       items.push(...extracted)
     } else {
@@ -798,8 +806,8 @@ const extractTestingDetails = (text: string, miscSet: Set<string>) => {
         })
         .forEach(entry => {
           // Only add prefix if not already present
-          const prefixed = entry.toLowerCase().startsWith(prefix.toLowerCase()) 
-            ? entry 
+          const prefixed = entry.toLowerCase().startsWith(prefix.toLowerCase())
+            ? entry
             : `${prefix}: ${entry}`
           miscSet.add(prefixed)
         })

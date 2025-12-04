@@ -24,6 +24,12 @@ import { useRouter } from 'next/navigation'
 import { MajorSelectionModal } from '@/components/ui/MajorSelectionModal'
 import { SaveModal } from '@/components/SaveModal'
 import { PresetStorage } from '@/lib/preset-storage'
+import {
+  parseApplicationData,
+  FIELD_LABELS,
+  ApplicationMetric,
+  ProfileField
+} from '@/lib/applicationParser'
 
 export const dynamic = 'force-dynamic'
 
@@ -129,6 +135,10 @@ export default function HomePage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadMessage, setUploadMessage] = useState<string | null>(null)
   const [lastUploadedFile, setLastUploadedFile] = useState<string | null>(null)
+  const [autoFillInsights, setAutoFillInsights] = useState<AutoFillInsight[]>([])
+  const [pendingOverrides, setPendingOverrides] = useState<Partial<Record<ProfileField, string>> | null>(null)
+  const [pendingOverrideFields, setPendingOverrideFields] = useState<ProfileField[]>([])
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const updateProfile = <K extends keyof Profile>(field: K, value: Profile[K], options?: UpdateOptions) => {
@@ -142,6 +152,39 @@ export default function HomePage() {
       }
       return next
     })
+  }
+
+  const handleOverrideChoice = (accept: boolean) => {
+    if (!pendingOverrides || !pendingOverrideFields.length) {
+      setIsOverrideModalOpen(false)
+      return
+    }
+
+    if (accept) {
+      updateProfileBulk(pendingOverrides, { autoFilled: true })
+      setAutoFillInsights(prev =>
+        prev.map(insight =>
+          insight.field && pendingOverrideFields.includes(insight.field)
+            ? { ...insight, status: 'applied' }
+            : insight
+        )
+      )
+      setUploadMessage(prev =>
+        prev ? `${prev} · Applied application overrides` : 'Applied application overrides'
+      )
+    } else {
+      setAutoFillInsights(prev =>
+        prev.map(insight =>
+          insight.field && pendingOverrideFields.includes(insight.field)
+            ? { ...insight, status: 'skipped' }
+            : insight
+        )
+      )
+    }
+
+    setPendingOverrides(null)
+    setPendingOverrideFields([])
+    setIsOverrideModalOpen(false)
   }
 
   const updateProfileBulk = (updates: Partial<Profile>, options?: UpdateOptions) => {
@@ -197,50 +240,90 @@ export default function HomePage() {
       }
 
       const parsed = parseApplicationData(text)
-      const filteredUpdates: Partial<Profile> = {}
+      const blankUpdates: Partial<Record<ProfileField, string>> = {}
+      const conflictUpdates: Partial<Record<ProfileField, string>> = {}
+      const keptFields = new Set<ProfileField>()
 
-      ;(Object.entries(parsed.updates) as [keyof Profile, Profile[keyof Profile]][]).forEach(([key, value]) => {
-        // Skip misc field (it's handled separately) and ensure value is a string
-        if (key === 'misc' || typeof value !== 'string') return
-        const currentValue = profile[key]
-        if (typeof currentValue === 'string' && !currentValue.trim()) {
-          ;(filteredUpdates as any)[key] = value
+      Object.entries(parsed.updates).forEach(([key, value]) => {
+        const typedKey = key as ProfileField
+        const currentValue = profile[typedKey]
+        if (typeof currentValue === 'string') {
+          if (!currentValue.trim()) {
+            blankUpdates[typedKey] = value as string
+          } else if (currentValue.trim() === (value as string).trim()) {
+            keptFields.add(typedKey)
+          } else {
+            conflictUpdates[typedKey] = value as string
+          }
         }
       })
 
+      if (Object.keys(blankUpdates).length) {
+        updateProfileBulk(blankUpdates, { autoFilled: true })
+      }
+
       let miscAdded = 0
       if (parsed.misc.length) {
-        const uniqueMisc = parsed.misc.filter(item => {
+        const existingMisc = new Set(profile.misc.map(item => item.toLowerCase()))
+        const newEntries = parsed.misc.filter(item => {
           const normalized = item.toLowerCase()
-          return item.length >= 6 && !profile.misc.some(existing => existing.toLowerCase() === normalized)
+          if (normalized.length < 6 || existingMisc.has(normalized)) return false
+          existingMisc.add(normalized)
+          return true
         })
-        if (uniqueMisc.length) {
-          updateProfile('misc', [...profile.misc, ...uniqueMisc])
-          miscAdded = uniqueMisc.length
+        if (newEntries.length) {
+          updateProfile('misc', [...profile.misc, ...newEntries])
+          miscAdded = newEntries.length
         }
       }
 
-      if (Object.keys(filteredUpdates).length) {
-        updateProfileBulk(filteredUpdates, { autoFilled: true })
+      const pendingFields = Object.keys(conflictUpdates) as ProfileField[]
+      const insightsWithStatus: AutoFillInsight[] = parsed.metrics.map(metric => {
+        if (metric.field && metric.mappedValue) {
+          if (blankUpdates[metric.field]) {
+            return { ...metric, status: 'applied' }
+          }
+          if (pendingFields.includes(metric.field)) {
+            return { ...metric, status: 'pending' }
+          }
+          if (keptFields.has(metric.field)) {
+            return { ...metric, status: 'kept' }
+          }
+        }
+        return { ...metric, status: metric.mappedValue ? 'info' : 'info' }
+      })
+      setAutoFillInsights(insightsWithStatus)
+
+      if (pendingFields.length) {
+        setPendingOverrides(conflictUpdates)
+        setPendingOverrideFields(pendingFields)
+        setIsOverrideModalOpen(true)
+      } else {
+        setPendingOverrides(null)
+        setPendingOverrideFields([])
+        setIsOverrideModalOpen(false)
       }
 
       setLastUploadedFile(file.name)
 
-      if (Object.keys(filteredUpdates).length || miscAdded) {
-        const filledLabels = Object.keys(filteredUpdates).map(
-          key => FIELD_LABELS[key as keyof typeof FIELD_LABELS] || key
-        )
-        const messages: string[] = []
-        if (filledLabels.length) {
-          messages.push(`Auto-filled ${filledLabels.join(', ')}`)
-        }
-        if (miscAdded) {
-          messages.push(`Captured ${miscAdded} misc note${miscAdded > 1 ? 's' : ''}`)
-        }
-        setUploadMessage(messages.join('. '))
-      } else {
-        setUploadMessage('No new structured info detected. You can still add notes manually.')
+      const appliedCount = Object.keys(blankUpdates).length
+      const pendingCount = pendingFields.length
+      const messageParts: string[] = []
+      if (appliedCount) {
+        messageParts.push(`Auto-filled ${appliedCount} field${appliedCount > 1 ? 's' : ''}`)
       }
+      if (miscAdded) {
+        messageParts.push(`Captured ${miscAdded} misc note${miscAdded > 1 ? 's' : ''}`)
+      }
+      if (pendingCount) {
+        messageParts.push(
+          `${pendingCount} field${pendingCount > 1 ? 's are' : ' is'} awaiting your approval`
+        )
+      }
+      if (!messageParts.length) {
+        messageParts.push('No new structured info detected. You can still add notes manually.')
+      }
+      setUploadMessage(messageParts.join(' · '))
     } catch (error) {
       console.error('Failed to process application file', error)
       setUploadError('Failed to process file. Please ensure it is not password protected.')
@@ -550,6 +633,22 @@ export default function HomePage() {
     viewport: { once: true, margin: '-10% 0px -10% 0px' }
   }
 
+  const insightStatusClasses: Record<AutoFillInsightStatus, string> = {
+    applied: 'bg-green-500/15 text-green-200 border border-green-500/30',
+    pending: 'bg-yellow-500/15 text-yellow-200 border border-yellow-500/30',
+    kept: 'bg-sky-500/15 text-sky-200 border border-sky-500/30',
+    info: 'bg-white/5 text-gray-200 border border-white/10',
+    skipped: 'bg-red-500/15 text-red-200 border border-red-500/30'
+  }
+
+  const insightStatusLabels: Record<AutoFillInsightStatus, string> = {
+    applied: 'Applied',
+    pending: 'Pending',
+    kept: 'Kept',
+    info: 'Info',
+    skipped: 'Skipped'
+  }
+
   return (
     <div className="rox-container">
       <div className="rox-section">
@@ -637,6 +736,67 @@ export default function HomePage() {
               <p className="mt-3 text-xs text-gray-400">
                 Last import: <span className="text-white">{lastUploadedFile}</span>
               </p>
+            )}
+
+            {autoFillInsights.length > 0 && (
+              <div className="mt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white tracking-wide">Auto-fill Insights</h3>
+                    <p className="text-xs text-gray-400">
+                      How we mapped your application details to Chancify inputs
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-gray-300">
+                    {(['applied', 'pending', 'kept', 'info', 'skipped'] as AutoFillInsightStatus[]).map(status => (
+                      <span
+                        key={status}
+                        className={`px-2 py-1 rounded-full ${insightStatusClasses[status]}`}
+                      >
+                        {insightStatusLabels[status]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
+                  <table className="min-w-full text-sm text-left">
+                    <thead>
+                      <tr className="text-xs uppercase tracking-wide text-gray-400 border-b border-white/10">
+                        <th className="px-4 py-3 font-medium">Field</th>
+                        <th className="px-4 py-3 font-medium">Detected Detail</th>
+                        <th className="px-4 py-3 font-medium">Mapped Value</th>
+                        <th className="px-4 py-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {autoFillInsights.map((insight, index) => (
+                        <tr
+                          key={`${insight.label}-${index}`}
+                          className="border-b border-white/5 last:border-none"
+                        >
+                          <td className="px-4 py-3 text-white font-medium">{insight.label}</td>
+                          <td className="px-4 py-3 text-gray-300">
+                            {insight.rawValue}
+                            {insight.reason && (
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {insight.reason}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-200">
+                            {insight.mappedValue ?? '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-1 rounded-full ${insightStatusClasses[insight.status]}`}>
+                              {insightStatusLabels[insight.status]}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
           </div>
         </motion.section>
@@ -987,6 +1147,69 @@ export default function HomePage() {
             Saved!
           </motion.div>
         )}
+
+        {isOverrideModalOpen && pendingOverrides && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => handleOverrideChoice(false)}
+            />
+            <div className="relative w-full max-w-xl bg-[#0b0b0f] border border-white/10 rounded-2xl p-6 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-yellow-500/20 text-yellow-300 rounded-lg">
+                  <ListChecks className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Override existing values?</h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    We found application details for fields you already filled in. Choose whether to
+                    keep your current entries or replace them with the imported values.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 max-h-60 overflow-y-auto pr-1 space-y-3">
+                {pendingOverrideFields.map(field => (
+                  <div
+                    key={field}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+                  >
+                    <div className="text-white font-semibold">
+                      {FIELD_LABELS[field] || field}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      Current:&nbsp;
+                      <span className="text-white">
+                        {typeof profile[field] === 'string' && profile[field] ? profile[field] : '—'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-yellow-200 mt-1">
+                      Application:&nbsp;
+                      <span className="text-white">
+                        {pendingOverrides[field] ?? '—'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => handleOverrideChoice(false)}
+                  className="flex-1 px-4 py-3 rounded-xl border border-white/15 text-white/80 hover:bg-white/10 transition"
+                >
+                  Keep My Values
+                </button>
+                <button
+                  onClick={() => handleOverrideChoice(true)}
+                  className="flex-1 px-4 py-3 rounded-xl bg-yellow-400 text-black font-semibold hover:bg-yellow-300 transition"
+                >
+                  Use Application Values
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1007,12 +1230,33 @@ const FIELD_LABELS: Partial<Record<keyof Profile, string>> = {
   ap_count: 'AP Courses',
   honors_count: 'Honors Courses',
   class_rank_percentile: 'Class Rank %',
-  class_size: 'Class Size'
+  class_size: 'Class Size',
+  extracurricular_depth: 'Extracurricular Depth',
+  leadership_positions: 'Leadership',
+  awards_publications: 'Awards & Publications',
+  passion_projects: 'Passion Projects',
+  business_ventures: 'Business Ventures',
+  volunteer_work: 'Volunteer Work',
+  research_experience: 'Research Experience',
+  portfolio_audition: 'Portfolio / Audition',
+  geographic_diversity: 'Geographic Diversity',
+  firstgen_diversity: 'First-Generation / Diversity',
+  hs_reputation: 'High School Reputation'
 }
 
-type ParsedApplicationData = {
-  updates: Partial<Profile>
-  misc: string[]
+type ApplicationMetric = {
+  field?: keyof Profile
+  label: string
+  rawValue: string
+  mappedValue?: string
+  reason?: string
+  miscEntry?: string
+}
+
+type AutoFillInsightStatus = 'applied' | 'pending' | 'kept' | 'info' | 'skipped'
+
+type AutoFillInsight = ApplicationMetric & {
+  status: AutoFillInsightStatus
 }
 
 const isSupportedFileType = (file: File) => {
@@ -1038,12 +1282,12 @@ const extractTextFromFile = async (file: File) => {
 const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
   // Dynamic import for pdfjs-dist (v4.x structure)
   const pdfjsLib = await import('pdfjs-dist')
-  
+
   // Set up worker for browser environment
   if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
     // Get the actual installed version from the library
     const version = pdfjsLib.version || '4.10.38'
-    
+
     // Use jsdelivr CDN which is reliable and supports version ranges
     // For v4.x, the worker is typically at build/pdf.worker.min.mjs
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
@@ -1058,14 +1302,14 @@ const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
       useSystemFonts: true,
       verbosity: 0 // Reduce console noise
     }
-    
+
     // If worker is disabled, don't set workerSrc
     if (disableWorker && pdfjsLib.GlobalWorkerOptions) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = ''
     }
-    
+
     const pdf = await pdfjsLib.getDocument(options).promise
-    
+
     let text = ''
     for (let i = 1; i <= pdf.numPages; i += 1) {
       const page = await pdf.getPage(i)
@@ -1096,7 +1340,7 @@ const extractPdfText = async (arrayBuffer: ArrayBuffer) => {
         throw new Error('Failed to parse PDF: Unknown error')
       }
     }
-    
+
     // Handle other errors
     console.error('PDF parsing error:', error)
     if (error instanceof Error) {
@@ -1116,8 +1360,24 @@ const extractDocxText = async (arrayBuffer: ArrayBuffer) => {
 }
 
 const parseApplicationData = (rawText: string): ParsedApplicationData => {
-  const text = rawText.replace(/\r/g, '\n')
+  const text = stripEssaySections(rawText.replace(/\r/g, '\n'))
   const updates: Partial<Profile> = {}
+  const metrics: ApplicationMetric[] = []
+  const miscSet = new Set<string>()
+
+  const recordMetric = (field: keyof Profile, rawValue: string, mappedValue?: string, reason?: string) => {
+    const metric: ApplicationMetric = {
+      field,
+      label: FIELD_LABELS[field] || field,
+      rawValue,
+      mappedValue,
+      reason
+    }
+    metrics.push(metric)
+    if (mappedValue !== undefined) {
+      updates[field] = mappedValue
+    }
+  }
 
   const matchNumber = (regex: RegExp) => {
     const match = text.match(regex)
@@ -1126,54 +1386,62 @@ const parseApplicationData = (rawText: string): ParsedApplicationData => {
 
   const weightedGpa = matchNumber(/weighted\s*gpa[^0-9]{0,10}(\d\.\d{1,2})/i)
   if (weightedGpa) {
-    updates.gpa_weighted = weightedGpa
+    recordMetric('gpa_weighted', `${weightedGpa}`, weightedGpa)
   }
 
   const unweightedGpa = matchNumber(/unweighted\s*gpa[^0-9]{0,10}(\d\.\d{1,2})/i)
   if (unweightedGpa) {
-    updates.gpa_unweighted = unweightedGpa
+    recordMetric('gpa_unweighted', `${unweightedGpa}`, unweightedGpa)
   } else if (!updates.gpa_unweighted) {
     const generalGpa = matchNumber(/gpa[^0-9]{0,10}(\d\.\d{1,2})/i)
     if (generalGpa) {
-      updates.gpa_unweighted = generalGpa
+      recordMetric('gpa_unweighted', `${generalGpa}`, generalGpa)
     }
   }
 
   const satScore = matchNumber(/sat[^0-9]{0,12}(\d{3,4})/i)
   if (satScore) {
-    updates.sat = satScore
+    recordMetric('sat', `${satScore}`, satScore)
   }
 
   const actScore = matchNumber(/act[^0-9]{0,12}(\d{1,2})/i)
   if (actScore) {
-    updates.act = actScore
+    recordMetric('act', `${actScore}`, actScore)
   }
 
   const apCourses = matchNumber(/(?:ap|advanced placement)[^0-9]{0,12}(\d{1,2})/i)
   if (apCourses) {
-    updates.ap_count = apCourses
+    recordMetric('ap_count', `${apCourses}`, apCourses)
   }
 
   const honorsCourses = matchNumber(/honors (?:courses|classes)[^0-9]{0,12}(\d{1,2})/i)
   if (honorsCourses) {
-    updates.honors_count = honorsCourses
+    recordMetric('honors_count', `${honorsCourses}`, honorsCourses)
   }
 
   const classRank = matchNumber(/class rank[^0-9%]{0,12}(\d{1,2})\s*%/i)
   if (classRank) {
-    updates.class_rank_percentile = classRank
+    recordMetric('class_rank_percentile', `${classRank}%`, classRank)
   }
 
   const classSize =
     matchNumber(/(?:class size|class of|students in (?:my )?class)[^0-9]{0,12}(\d{2,4})/i) ||
     matchNumber(/cohort of (\d{2,4})/i)
   if (classSize) {
-    updates.class_size = classSize
+    recordMetric('class_size', `${classSize}`, classSize)
   }
+
+  extractMiscCandidates(text).forEach(entry => miscSet.add(entry))
+
+  const derived = deriveFactorInsights(text)
+  Object.assign(updates, derived.updates)
+  derived.misc.forEach(entry => miscSet.add(entry))
+  metrics.push(...derived.metrics)
 
   return {
     updates,
-    misc: extractMiscCandidates(text)
+    misc: Array.from(miscSet),
+    metrics
   }
 }
 
@@ -1215,4 +1483,178 @@ const extractMiscCandidates = (text: string) => {
   })
 
   return results.slice(0, 10)
+}
+
+const stripEssaySections = (text: string) => {
+  const lines = text.split('\n')
+  let skipping = false
+  const cleaned: string[] = []
+
+  const isSectionHeading = (line: string) =>
+    /^\s*\d+\.\s+/.test(line) || /^[A-Z][A-Za-z\s]+(?:\:|\-)/.test(line)
+
+  const isEssayHeading = (line: string) => /essay/i.test(line)
+
+  lines.forEach(line => {
+    const trimmed = line.trim()
+    if (!skipping && trimmed && isEssayHeading(trimmed)) {
+      skipping = true
+      return
+    }
+
+    if (skipping) {
+      if (trimmed && isSectionHeading(trimmed) && !isEssayHeading(trimmed)) {
+        skipping = false
+        cleaned.push(line)
+      }
+      return
+    }
+
+    cleaned.push(line)
+  })
+
+  return cleaned.join('\n')
+}
+
+const scoreFromCount = (count: number, thresholds: { ten: number; eight: number; six: number; four: number }) => {
+  if (count >= thresholds.ten) return '10'
+  if (count >= thresholds.eight) return '8'
+  if (count >= thresholds.six) return '6'
+  if (count >= thresholds.four) return '4'
+  return '2'
+}
+
+const hoursToScore = (hours: number) => {
+  if (hours >= 250) return '10'
+  if (hours >= 150) return '8'
+  if (hours >= 80) return '6'
+  if (hours >= 25) return '4'
+  return '2'
+}
+
+const deriveFactorInsights = (text: string) => {
+  const updates: Partial<Profile> = {}
+  const misc: string[] = []
+  const metrics: ApplicationMetric[] = []
+
+  const pushMetric = (metric: ApplicationMetric) => {
+    metrics.push(metric)
+    if (metric.field && metric.mappedValue) {
+      updates[metric.field] = metric.mappedValue
+    }
+    if (metric.miscEntry) {
+      misc.push(metric.miscEntry)
+    }
+  }
+
+  // Volunteer hours / involvement
+  const volunteerHoursMatch = text.match(/(\d{2,4})\s*(?:\+)?\s*(?:hours|hrs)[^.\n]{0,60}(?:volunteer|community)/i)
+  if (volunteerHoursMatch) {
+    const hours = parseInt(volunteerHoursMatch[1], 10)
+    const mappedValue = hoursToScore(hours)
+    pushMetric({
+      field: 'volunteer_work',
+      label: FIELD_LABELS.volunteer_work || 'Volunteer Work',
+      rawValue: `${hours} hours`,
+      mappedValue,
+      miscEntry: `Volunteer Work: ${hours} hours reported`
+    })
+  } else {
+    const volunteerMentions = (text.match(/volunteer/gi) || []).length
+    if (volunteerMentions >= 2) {
+      const mappedValue = scoreFromCount(volunteerMentions, { ten: 6, eight: 4, six: 3, four: 2 })
+      pushMetric({
+        field: 'volunteer_work',
+        label: FIELD_LABELS.volunteer_work || 'Volunteer Work',
+        rawValue: `${volunteerMentions} volunteer highlights`,
+        mappedValue
+      })
+    }
+  }
+
+  // Activities / extracurricular depth (count bullet points)
+  const activityBullets = (text.match(/•/g) || []).length || (text.match(/\n-\s/g) || []).length
+  if (activityBullets > 0) {
+    const mappedValue = scoreFromCount(activityBullets, { ten: 10, eight: 7, six: 4, four: 2 })
+    pushMetric({
+      field: 'extracurricular_depth',
+      label: FIELD_LABELS.extracurricular_depth || 'Extracurricular Depth',
+      rawValue: `${activityBullets} major activities`,
+      mappedValue
+    })
+  }
+
+  // Leadership roles
+  const leadershipCount = (text.match(/\b(president|captain|founder|lead|leader|chair|director|head)\b/gi) || []).length
+  if (leadershipCount) {
+    const mappedValue = scoreFromCount(leadershipCount, { ten: 6, eight: 4, six: 2, four: 1 })
+    pushMetric({
+      field: 'leadership_positions',
+      label: FIELD_LABELS.leadership_positions || 'Leadership',
+      rawValue: `${leadershipCount} leadership keywords`,
+      mappedValue
+    })
+  }
+
+  // Awards
+  const awardsCount = (text.match(/\b(award|honor|finalist|nominee|scholarship|prize)\b/gi) || []).length
+  if (awardsCount) {
+    const mappedValue = scoreFromCount(awardsCount, { ten: 8, eight: 5, six: 3, four: 1 })
+    pushMetric({
+      field: 'awards_publications',
+      label: FIELD_LABELS.awards_publications || 'Awards & Publications',
+      rawValue: `${awardsCount} award references`,
+      mappedValue
+    })
+  }
+
+  // Passion projects / independent initiatives
+  const projectCount = (text.match(/\b(project|prototype|app|initiative|platform)\b/gi) || []).length
+  if (projectCount) {
+    const mappedValue = scoreFromCount(projectCount, { ten: 7, eight: 4, six: 2, four: 1 })
+    pushMetric({
+      field: 'passion_projects',
+      label: FIELD_LABELS.passion_projects || 'Passion Projects',
+      rawValue: `${projectCount} project highlights`,
+      mappedValue
+    })
+  }
+
+  // Business ventures
+  const businessCount = (text.match(/\b(startup|business|venture|company|nonprofit)\b/gi) || []).length
+  if (businessCount) {
+    const mappedValue = scoreFromCount(businessCount, { ten: 6, eight: 4, six: 2, four: 1 })
+    pushMetric({
+      field: 'business_ventures',
+      label: FIELD_LABELS.business_ventures || 'Business Ventures',
+      rawValue: `${businessCount} entrepreneurial mentions`,
+      mappedValue
+    })
+  }
+
+  // Research
+  const researchCount = (text.match(/\b(research|lab|study|thesis|science fair)\b/gi) || []).length
+  if (researchCount) {
+    const mappedValue = scoreFromCount(researchCount, { ten: 6, eight: 4, six: 2, four: 1 })
+    pushMetric({
+      field: 'research_experience',
+      label: FIELD_LABELS.research_experience || 'Research Experience',
+      rawValue: `${researchCount} research references`,
+      mappedValue
+    })
+  }
+
+  // Portfolio / audition cues
+  const portfolioCount = (text.match(/\b(portfolio|audition|performance|recital|orchestra)\b/gi) || []).length
+  if (portfolioCount) {
+    const mappedValue = scoreFromCount(portfolioCount, { ten: 5, eight: 3, six: 2, four: 1 })
+    pushMetric({
+      field: 'portfolio_audition',
+      label: FIELD_LABELS.portfolio_audition || 'Portfolio / Audition',
+      rawValue: `${portfolioCount} creative highlights`,
+      mappedValue
+    })
+  }
+
+  return { updates, misc, metrics }
 }

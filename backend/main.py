@@ -168,6 +168,42 @@ def safe_round(value, decimals=4, default=0.0):
     safe_val = safe_float(value, default)
     return round(safe_val, decimals)
 
+def safe_isna(value) -> bool:
+    """
+    Safely check if a value is NaN, handling cases where pandas is not available.
+
+    Returns True if the value is None, NaN, or invalid; False otherwise.
+    """
+    if value is None:
+        return True
+
+    # If pandas is available, use pd.isna for comprehensive NaN checking
+    if pd is not None:
+        try:
+            return pd.isna(value)
+        except (TypeError, ValueError):
+            # Fall through to manual checks if pd.isna fails
+            pass
+
+    # Manual NaN check (works for floats, numpy types, etc.)
+    try:
+        if isinstance(value, float):
+            return value != value  # NaN check: NaN != NaN is True
+        if hasattr(value, '__float__'):
+            float_val = float(value)
+            return float_val != float_val  # NaN check
+    except (TypeError, ValueError):
+        pass
+
+    return False
+
+def safe_notna(value) -> bool:
+    """
+    Safely check if a value is not NaN, handling cases where pandas is not available.
+    Simply the inverse of safe_isna.
+    """
+    return not safe_isna(value)
+
 def require_service(service_obj, service_name: str, resolution_hint: Optional[str] = None):
     """
     Ensure a lazily imported service is available before use.
@@ -790,7 +826,7 @@ from services.openai_service import college_info_service
 from ml.models.predictor import get_predictor
 from ml.preprocessing.feature_extractor import StudentFeatures, CollegeFeatures
 from pydantic import BaseModel
-import pandas as pd
+# Note: pandas (pd) is imported at the top with error handling
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(calculations.router, prefix="/api/calculations", tags=["Probability Calculations"])
@@ -819,6 +855,8 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
                 break
 
         if csv_path:
+            if pd is None:
+                raise RuntimeError("pandas is required to load college data but is not installed")
             df = pd.read_csv(csv_path)
             logger.info(f"Loaded college data: {df.shape} from {csv_path}")
         else:
@@ -860,22 +898,22 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
             logger.info(f"CSV columns: {list(row.index)}")
             logger.info(f"Row name value: {row.get('name', 'MISSING_NAME_COLUMN')}")
             logger.info(f"Row name type: {type(row.get('name'))}")
-            logger.info(f"Row name is NaN: {pd.isna(row.get('name'))}")
+            logger.info(f"Row name is NaN: {safe_isna(row.get('name'))}")
 
             # Try to get name from different possible column names
             college_actual_name = None
-            if pd.notna(row.get('name')):
+            if safe_notna(row.get('name')):
                 college_actual_name = str(row['name'])
-            elif pd.notna(row.get('Name')):
+            elif safe_notna(row.get('Name')):
                 college_actual_name = str(row['Name'])
-            elif pd.notna(row.get('institution_name')):
+            elif safe_notna(row.get('institution_name')):
                 college_actual_name = str(row['institution_name'])
             else:
                 college_actual_name = college_name  # Fallback to original input
 
             result = {
                 'name': college_actual_name,
-                'acceptance_rate': float(row.get('acceptance_rate', 0.5)) if pd.notna(row.get('acceptance_rate')) else (float(row.get('acceptance_rate_percent', 50)) / 100 if pd.notna(row.get('acceptance_rate_percent')) else 0.5),
+                'acceptance_rate': float(row.get('acceptance_rate', 0.5)) if safe_notna(row.get('acceptance_rate')) else (float(row.get('acceptance_rate_percent', 50)) / 100 if safe_notna(row.get('acceptance_rate_percent')) else 0.5),
                 'sat_25th': 1200,  # Default values since SAT/ACT data not available
                 'sat_75th': 1500,
                 'act_25th': 25,
@@ -883,13 +921,13 @@ def get_college_data(college_name: str) -> Dict[str, Any]:
                 'test_policy': str(row.get('test_policy', 'Required')),
                 'financial_aid_policy': str(row.get('financial_aid_policy', 'Need-blind')),
                 'selectivity_tier': str(row.get('selectivity_tier', 'Moderately Selective')),
-                'gpa_average': float(row.get('gpa_average', 3.7)) if pd.notna(row.get('gpa_average')) else 3.7,
-                'city': str(row.get('city', 'Unknown')) if pd.notna(row.get('city')) else "Unknown",
-                'state': str(row.get('state', 'Unknown')) if pd.notna(row.get('state')) else "Unknown",
-                'tuition_in_state': int(row.get('tuition_in_state_usd', 20000)) if pd.notna(row.get('tuition_in_state_usd')) else 20000,
-                'tuition_out_of_state': int(row.get('tuition_out_of_state_usd', 40000)) if pd.notna(row.get('tuition_out_of_state_usd')) else 40000,
-                'student_body_size': int(row.get('student_body_size', 5000)) if pd.notna(row.get('student_body_size')) else 5000,
-                'is_public': str(row.get('control', 'Private')).lower() == 'public' if pd.notna(row.get('control')) else False
+                'gpa_average': float(row.get('gpa_average', 3.7)) if safe_notna(row.get('gpa_average')) else 3.7,
+                'city': str(row.get('city', 'Unknown')) if safe_notna(row.get('city')) else "Unknown",
+                'state': str(row.get('state', 'Unknown')) if safe_notna(row.get('state')) else "Unknown",
+                'tuition_in_state': int(row.get('tuition_in_state_usd', 20000)) if safe_notna(row.get('tuition_in_state_usd')) else 20000,
+                'tuition_out_of_state': int(row.get('tuition_out_of_state_usd', 40000)) if safe_notna(row.get('tuition_out_of_state_usd')) else 40000,
+                'student_body_size': int(row.get('student_body_size', 5000)) if safe_notna(row.get('student_body_size')) else 5000,
+                'is_public': str(row.get('control', 'Private')).lower() == 'public' if safe_notna(row.get('control')) else False
             }
             logger.info(f"Returning college data: {result}")
             return result
@@ -1351,7 +1389,7 @@ async def suggest_colleges(request: CollegeSuggestionsRequest):
 
             # Handle NaN values for enrollment
             student_body_size = college_data['student_body_size']
-            if pd.isna(student_body_size) or student_body_size is None:
+            if safe_isna(student_body_size) or student_body_size is None:
                 enrollment_str = "N/A"
                 student_body_size = 0
             else:

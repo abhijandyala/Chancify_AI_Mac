@@ -5,16 +5,24 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
   helperText?: string
+  badgeText?: string
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, className, ...props }, ref) => {
+  ({ label, error, helperText, badgeText, className, ...props }, ref) => {
     return (
       <div className="w-full">
         {label && (
-          <label className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2 block">
-            {label}
-          </label>
+          <div className="flex items-center justify-between mb-1 sm:mb-2 gap-2">
+            <label className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">
+              {label}
+            </label>
+            {badgeText && (
+              <span className="text-[0.6rem] sm:text-xs font-semibold text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded-full px-2 py-0.5">
+                {badgeText}
+              </span>
+            )}
+          </div>
         )}
         <input
           ref={ref}

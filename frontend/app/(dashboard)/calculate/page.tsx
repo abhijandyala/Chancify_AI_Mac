@@ -1063,10 +1063,10 @@ export default function CalculationsPage() {
                         </div>
 
                         {miscEvaluations.length > 0 && (
-                          <div className="mt-6 p-6 rounded-xl bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                                <Info className="h-5 w-5 text-emerald-300" />
+                          <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-ROX_DARK_GRAY/80 via-ROX_BLACK/70 to-ROX_BLACK/80 border border-ROX_GOLD/30 shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_14px_40px_rgba(0,0,0,0.6)]">
+                            <div className="flex items-center gap-3 mb-5">
+                              <div className="p-2 bg-yellow-500/15 rounded-lg border border-yellow-500/30">
+                                <Info className="h-5 w-5 text-yellow-300" />
                               </div>
                               <div>
                                 <p className="font-bold text-white text-xl">Specific Evaluation</p>
@@ -1075,18 +1075,21 @@ export default function CalculationsPage() {
                             </div>
                             <div className="space-y-3">
                               {miscEvaluations.map((row, idx) => (
-                                <div key={idx} className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5">
-                                  <div className="mt-1 h-2 w-2 rounded-full bg-emerald-300" />
+                                <div
+                                  key={idx}
+                                  className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3"
+                                >
+                                  <div className="mt-1 h-2 w-2 rounded-full bg-yellow-300" />
                                   <div className="flex-1">
                                     <p className="text-sm text-white">{row.item}</p>
                                     <p className="text-xs text-neutral-300/80">{row.feedback}</p>
                                   </div>
-                                  <div className="text-xs font-semibold text-emerald-300">+{row.contribution.toFixed(2)}%</div>
+                                  <div className="text-xs font-semibold text-yellow-300 whitespace-nowrap">+{row.contribution.toFixed(2)}%</div>
                                 </div>
                               ))}
                             </div>
-                            <div className="mt-3 text-xs text-neutral-400">
-                              Total MISC lift is capped and conservative to avoid overstatement.
+                            <div className="mt-4 text-xs text-neutral-400">
+                              Total MISC lift is capped and conservative to match other evaluations.
                             </div>
                           </div>
                         )}

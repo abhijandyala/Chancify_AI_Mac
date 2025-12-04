@@ -778,15 +778,15 @@ const extractTestingDetails = (text: string, miscSet: Set<string>) => {
     // ACT with composite and subscores: "ACT: Composite 33 (English 32, Math 34...)"
     { regex: /ACT[^\n]{0,100}?Composite\s*\d{1,2}\s*\([^)]+\)/gi, prefix: 'ACT' },
     // General SAT lines
-    { regex: /SAT[^\n]{0,150}+/gi, prefix: 'SAT' },
+    { regex: /SAT[^\n]{0,150}/gi, prefix: 'SAT' },
     // General ACT lines
-    { regex: /ACT[^\n]{0,150}+/gi, prefix: 'ACT' },
+    { regex: /ACT[^\n]{0,150}/gi, prefix: 'ACT' },
     // AP Exams with scores
-    { regex: /AP\s+Exams?[^\n]{0,200}+/gi, prefix: 'AP Exams' },
+    { regex: /AP\s+Exams?[^\n]{0,200}/gi, prefix: 'AP Exams' },
     // IB Exams
-    { regex: /IB\s+Exams?[^\n]{0,150}+/gi, prefix: 'IB Exams' },
+    { regex: /IB\s+Exams?[^\n]{0,150}/gi, prefix: 'IB Exams' },
     // PSAT
-    { regex: /PSAT[^\n]{0,100}+/gi, prefix: 'PSAT' }
+    { regex: /PSAT[^\n]{0,100}/gi, prefix: 'PSAT' }
   ]
 
   const seenTesting = new Set<string>()

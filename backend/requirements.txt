@@ -39,6 +39,10 @@ aiofiles==23.2.1
 requests>=2.31.0
 
 # Web Scraping (for Reddit and other scrapers)
+praw
+python-dotenv
+pandas
+tqdm
 beautifulsoup4>=4.12.0
 praw>=7.7.0
 

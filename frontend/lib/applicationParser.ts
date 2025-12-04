@@ -421,25 +421,42 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
   if (items.length === 0) return []
 
   // Normalize items (trim, remove extra spaces)
-  const normalized = items.map(item => item.trim().replace(/\s+/g, ' ')).filter(item => item.length > 0)
+  const normalized = items
+    .map(item => item.trim().replace(/\s+/g, ' '))
+    .filter(item => item.length > 0)
 
   // Remove exact duplicates (case-insensitive)
   const unique = new Set<string>()
   const seenLower = new Set<string>()
 
   for (const item of normalized) {
-    const lower = item.toLowerCase()
-    if (!seenLower.has(lower)) {
-      seenLower.add(lower)
-      unique.add(item)
+    const key = normalizeMiscKey(item)
+    if (!key) continue
+
+    if (!seenLower.has(key)) {
+      seenLower.add(key)
+      unique.add(item.trim())
     }
   }
 
   const uniqueItems = Array.from(unique)
 
+  // Additional pass: remove entries that only differ by trailing punctuation or spacing
+  const punctuationMap = new Map<string, string>()
+  const dedupedItems: string[] = []
+  for (const item of uniqueItems) {
+    const normalizedWithoutPunctuation = normalizeMiscKey(item.replace(/[.,;:!?]+$/, ''))
+    if (normalizedWithoutPunctuation && !punctuationMap.has(normalizedWithoutPunctuation)) {
+      punctuationMap.set(normalizedWithoutPunctuation, item)
+      dedupedItems.push(item)
+    }
+  }
+
+  const chunkSource = dedupedItems.length ? dedupedItems : uniqueItems
+
   // Break down large chunks into smaller items
   const chunked: string[] = []
-  for (const item of uniqueItems) {
+  for (const item of chunkSource) {
     // If item is very long (>300 chars), try to break it down
     if (item.length > 300) {
       const broken = breakDownLargeChunk(item)
@@ -456,11 +473,12 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     let isSubstring = false
     for (const other of chunked) {
       if (item !== other && other.length > item.length) {
-        const itemLower = item.toLowerCase().trim()
-        const otherLower = other.toLowerCase().trim()
+        const itemLower = normalizeMiscKey(item)
+        const otherLower = normalizeMiscKey(other)
+        if (!itemLower || !otherLower) continue
+
         // Only remove if item is clearly a substring AND the other item is significantly longer
-        // This prevents removing legitimate distinct entries where one just mentions part of another
-        if (otherLower.includes(itemLower) && other.length > item.length * 1.5) {
+        if (otherLower.includes(itemLower) && other.length >= item.length * 1.35) {
           isSubstring = true
           break
         }
@@ -471,8 +489,64 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     }
   }
 
-  // Sort by length (longer items first, then shorter) to prioritize detailed entries
-  return filtered.sort((a, b) => b.length - a.length)
+  // Filter out any lingering parent/guardian info (should have been excluded earlier)
+  const parentFiltered = filtered.filter(
+    entry => !/\b(parent|mother|father|guardian)\b/i.test(entry.replace(/[^a-zA-Z\s]/g, '').trim())
+  )
+
+  return sortMiscEntries(parentFiltered)
+}
+
+/**
+ * Normalize misc entry for deduplication
+ */
+const normalizeMiscKey = (value: string): string => {
+  return value
+    .toLowerCase()
+    .replace(/[“”]/g, '"')
+    .replace(/[’]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/[•]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:!?]+$/g, '')
+    .trim()
+}
+
+/**
+ * Sort misc entries so related topics stay grouped (testing, academics, activities, etc.)
+ */
+const sortMiscEntries = (entries: string[]): string[] => {
+  const categorized = entries.map((entry, index) => ({
+    entry,
+    priority: getMiscPriority(entry),
+    order: index
+  }))
+
+  return categorized
+    .sort((a, b) => {
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority
+      }
+      if (b.entry.length !== a.entry.length) {
+        return b.entry.length - a.entry.length
+      }
+      return a.order - b.order
+    })
+    .map(item => item.entry)
+}
+
+const getMiscPriority = (entry: string): number => {
+  const lower = entry.toLowerCase()
+
+  if (/(sat|act|psat|testing detail|ap exam|ib exam)/.test(lower)) return 90
+  if (/(ap courses|honors courses|course list|class rank|gpa|education detail|subject emphasis)/.test(lower)) return 80
+  if (/(award|honor|finalist|nominee|scholar|distinction)/.test(lower)) return 75
+  if (/(research|project|prototype|app|startup|business|venture|internship)/.test(lower)) return 70
+  if (/(captain|president|team|council|leader|treasurer|orchestra|club|varsity|committee|student council)/.test(lower)) return 65
+  if (/(volunteer|service|community|tutor|outreach|nonprofit)/.test(lower)) return 60
+  if (/(employment|job|barista|work|assistant|staff|cashier)/.test(lower)) return 55
+  if (/(parent|mother|father|guardian)/.test(lower)) return 5
+  return 40
 }
 
 /**

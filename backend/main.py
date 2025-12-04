@@ -827,18 +827,67 @@ async def get_improvement_analysis(college_name: str, user_profile: Dict[str, An
             "combined_impact": 0
         }
 
-# Include API routes
-from api.routes import calculations, ml_calculations, openai_routes, auth
-from services.openai_service import college_info_service
-from ml.models.predictor import get_predictor
-from ml.preprocessing.feature_extractor import StudentFeatures, CollegeFeatures
+# Include API routes - wrap in try-except for graceful degradation
+calculations = None
+ml_calculations = None
+openai_routes = None
+auth = None
+college_info_service = None
+get_predictor = None
+StudentFeatures = None
+CollegeFeatures = None
+
+try:
+    from api.routes import calculations, ml_calculations, openai_routes, auth
+    logger.info("✓ API routes imported")
+except Exception as e:
+    logger.warning(f"Failed to import API routes: {e}")
+
+try:
+    from services.openai_service import college_info_service
+    logger.info("✓ OpenAI service imported")
+except Exception as e:
+    logger.warning(f"Failed to import OpenAI service: {e}")
+
+try:
+    from ml.models.predictor import get_predictor
+    logger.info("✓ ML predictor imported")
+except Exception as e:
+    logger.warning(f"Failed to import ML predictor: {e}")
+
+try:
+    from ml.preprocessing.feature_extractor import StudentFeatures, CollegeFeatures
+    logger.info("✓ ML feature extractor types imported")
+except Exception as e:
+    logger.warning(f"Failed to import ML feature extractor types: {e}")
+
 from pydantic import BaseModel
 # Note: pandas (pd) is imported at the top with error handling
 
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(calculations.router, prefix="/api/calculations", tags=["Probability Calculations"])
-app.include_router(ml_calculations.router, prefix="/api/calculations", tags=["ML Predictions"])
-app.include_router(openai_routes.router, prefix="/api/openai", tags=["OpenAI College Info"])
+# Register routers only if imports succeeded
+if auth is not None:
+    app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+    logger.info("✓ Auth router registered")
+else:
+    logger.warning("⚠ Auth router not registered - authentication endpoints unavailable")
+
+if calculations is not None:
+    app.include_router(calculations.router, prefix="/api/calculations", tags=["Probability Calculations"])
+    logger.info("✓ Calculations router registered")
+else:
+    logger.warning("⚠ Calculations router not registered - calculation endpoints unavailable")
+
+if ml_calculations is not None:
+    app.include_router(ml_calculations.router, prefix="/api/calculations", tags=["ML Predictions"])
+    logger.info("✓ ML calculations router registered")
+else:
+    logger.warning("⚠ ML calculations router not registered - ML prediction endpoints unavailable")
+
+if openai_routes is not None:
+    app.include_router(openai_routes.router, prefix="/api/openai", tags=["OpenAI College Info"])
+    logger.info("✓ OpenAI routes registered")
+else:
+    logger.warning("⚠ OpenAI routes not registered - OpenAI endpoints unavailable")
 
 # College data mapping based on training data
 def get_college_data(college_name: str) -> Dict[str, Any]:
@@ -1043,7 +1092,18 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
     """Predict admission probability using hybrid ML+Formula system for frontend"""
     try:
         # Get predictor
+        if get_predictor is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML predictor service is not available. Ensure ML models are properly loaded."
+            )
         predictor = get_predictor()
+        
+        if StudentFeatures is None or CollegeFeatures is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML feature extraction types are not available. Ensure ML preprocessing module is properly loaded."
+            )
 
         # Convert frontend string values to appropriate types
         def safe_int(value: str) -> int:
@@ -1150,6 +1210,8 @@ async def predict_admission_frontend(request: FrontendProfileRequest):
 
         # Get real acceptance rate and subject emphasis from OpenAI API
         try:
+            if college_info_service is None:
+                raise Exception("OpenAI service not available")
             college_info = await college_info_service.get_college_info(college_data['name'])
             real_acceptance_rate = college_info['academics']['acceptance_rate']
             print(f"Using real acceptance rate for {college_data['name']}: {real_acceptance_rate:.1%}")
@@ -1467,7 +1529,18 @@ async def predict_admission(request: PredictionRequest):
     """Predict admission probability using ML model"""
     try:
         # Get predictor
+        if get_predictor is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML predictor service is not available. Ensure ML models are properly loaded."
+            )
         predictor = get_predictor()
+        
+        if StudentFeatures is None or CollegeFeatures is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML feature extraction types are not available. Ensure ML preprocessing module is properly loaded."
+            )
 
         # Create student features
         student = StudentFeatures(
@@ -1578,8 +1651,20 @@ async def predict_admission(request: PredictionRequest):
 async def debug_reload_predictor():
     """Debug endpoint to force reload the ML predictor."""
     try:
-        from ml.models.predictor import get_predictor
-        predictor = get_predictor(force_reload=True)
+        if get_predictor is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ML predictor service is not available. Ensure ML models are properly loaded."
+            )
+        # Try to re-import in case it was None at startup
+        try:
+            from ml.models.predictor import get_predictor as _get_predictor
+            predictor = _get_predictor(force_reload=True)
+        except Exception as import_error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Failed to reload predictor: {str(import_error)}"
+            )
         return {
             "status": "success",
             "message": "Predictor reloaded",

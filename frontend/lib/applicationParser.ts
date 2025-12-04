@@ -467,25 +467,39 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
   }
   const chunkedDeduped = dedupeEntries(chunked)
 
-  // Remove items that are substrings of longer items (keep the longer, more specific one)
-  // But be more conservative - only remove if one item is clearly a subset of another
+  // Remove items that are semantically similar to longer items (keep the longer, more complete one)
+  // Use semantic similarity instead of simple substring matching
   const filtered: string[] = []
   for (const item of chunkedDeduped) {
-    let isSubstring = false
+    let isSimilarToLonger = false
+    const itemNorm = normalizeMiscKey(item)
+    
+    if (!itemNorm) continue
+    
     for (const other of chunkedDeduped) {
-      if (item !== other && other.length > item.length) {
-        const itemLower = normalizeMiscKey(item)
-        const otherLower = normalizeMiscKey(other)
-        if (!itemLower || !otherLower) continue
+      if (item !== other && other.length >= item.length) {
+        const otherNorm = normalizeMiscKey(other)
+        if (!otherNorm) continue
 
-        // Only remove if item is clearly a substring AND the other item is significantly longer
-        if (otherLower.includes(itemLower) && other.length >= item.length * 1.25) {
-          isSubstring = true
-          break
+        // Use semantic similarity to detect duplicates
+        if (areSemanticallySimilar(itemNorm, otherNorm)) {
+          // Prefer the longer, more complete version
+          if (other.length > item.length * 1.1) {
+            isSimilarToLonger = true
+            break
+          } else if (other.length < item.length * 1.1 && other.length >= item.length) {
+            // If they're similar length, prefer the one that comes first in the array (original order)
+            const itemIndex = chunkedDeduped.indexOf(item)
+            const otherIndex = chunkedDeduped.indexOf(other)
+            if (otherIndex < itemIndex) {
+              isSimilarToLonger = true
+              break
+            }
+          }
         }
       }
     }
-    if (!isSubstring) {
+    if (!isSimilarToLonger) {
       filtered.push(item)
     }
   }
@@ -495,41 +509,195 @@ function cleanAndDeduplicateMisc(items: string[]): string[] {
     entry => !/\b(parent|mother|father|guardian)\b/i.test(entry.replace(/[^a-zA-Z\s]/g, '').trim())
   )
 
-  return sortMiscEntries(dedupeEntries(parentFiltered))
+  // Final aggressive deduplication pass using semantic similarity
+  // Run deduplication multiple times to catch any remaining duplicates
+  let finalDeduped = dedupeEntries(parentFiltered)
+  
+  // Run one more time to catch any that slipped through
+  finalDeduped = dedupeEntries(finalDeduped)
+  
+  // One more pass: remove any entries that are clearly subsets or near-duplicates
+  const finalFiltered: string[] = []
+  const seenFinal = new Map<string, string>() // Map normalized key -> original entry
+  
+  for (const item of finalDeduped) {
+    const itemNorm = normalizeMiscKey(item)
+    if (!itemNorm || itemNorm.length < 10) continue // Skip very short entries
+    
+    let shouldKeep = true
+    let replaced = false
+    
+    // Check against all already-seen entries
+    for (const [seenNorm, seenOriginal] of seenFinal.entries()) {
+      if (areSemanticallySimilar(itemNorm, seenNorm)) {
+        // If current item is longer/more complete, replace the existing one
+        if (itemNorm.length > seenNorm.length * 1.05) {
+          finalFiltered[finalFiltered.indexOf(seenOriginal)] = item
+          seenFinal.delete(seenNorm)
+          seenFinal.set(itemNorm, item)
+          replaced = true
+          break
+        } else {
+          // Current item is similar but not better, skip it
+          shouldKeep = false
+          break
+        }
+      }
+    }
+    
+    if (shouldKeep && !replaced) {
+      finalFiltered.push(item)
+      seenFinal.set(itemNorm, item)
+    }
+  }
+
+  return sortMiscEntries(finalFiltered)
 }
 
 /**
- * Normalize misc entry for deduplication
+ * Normalize misc entry for deduplication - removes prefixes, punctuation, normalizes spacing
  */
 const normalizeMiscKey = (value: string): string => {
-  return value
-    .toLowerCase()
+  let normalized = value.toLowerCase()
+  
+  // Remove common prefixes that add no semantic meaning
+  const prefixesToRemove = [
+    /^testing\s+detail\s*[:•\-]?\s*/i,
+    /^award\/honor\s*[:•\-]?\s*/i,
+    /^honors?\s*&?\s*awards?\s*[•\-\*]?\s*/i,
+    /^independent\s+project\s*[:•\-]?\s*/i,
+    /^education\s+detail\s*[:•\-]?\s*/i,
+    /^ap\s+exams?\s*[:•\-]?\s*/i,
+    /^ap\s+courses?\s*[:•\-]?\s*/i,
+    /^honors?\s+courses?\s*[:•\-]?\s*/i,
+    /^course\s+list\s*[:•\-]?\s*/i,
+    /^activities?\s*\(summary\)\s*[:•\-]?\s*/i,
+    /^\d+\.\s+/,  // Remove numbered prefixes like "6. Honors & Awards"
+  ]
+  
+  for (const prefix of prefixesToRemove) {
+    normalized = normalized.replace(prefix, '')
+  }
+  
+  // Normalize punctuation, spacing, and special characters
+  normalized = normalized
     .replace(/[“”]/g, '"')
-    .replace(/[’]/g, "'")
+    .replace(/[']/g, "'")
     .replace(/[–—]/g, '-')
-    .replace(/[•]/g, '')
+    .replace(/[•\-\*]/g, '')
     .replace(/\s+/g, ' ')
-    .replace(/[.,;:!?]+$/g, '')
+    .replace(/[.,;:!?]+$/g, '')  // Remove trailing punctuation
+    .replace(/^[.,;:!?\s]+/, '')  // Remove leading punctuation/spaces
     .trim()
+  
+  return normalized
+}
+
+/**
+ * Check if two normalized strings are semantically similar (one contains the other after removing small word differences)
+ */
+const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
+  // Exact match after normalization
+  if (norm1 === norm2) return true
+  
+  // If one is empty after normalization, not similar
+  if (!norm1 || !norm2) return false
+  
+  // If one is contained in the other and they're close in length (handle truncation)
+  const shorter = norm1.length < norm2.length ? norm1 : norm2
+  const longer = norm1.length >= norm2.length ? norm1 : norm2
+  
+  // Check if shorter is a substantial substring of longer (handle truncation)
+  if (longer.includes(shorter)) {
+    const ratio = shorter.length / longer.length
+    const lengthDiff = longer.length - shorter.length
+    
+    // More lenient matching for truncated entries:
+    // (1) 65%+ match OR (2) difference is small (<50 chars) and shorter is substantial (>30 chars)
+    // OR (3) shorter starts the longer string (likely truncation) and is >25 chars
+    const isPrefix = longer.indexOf(shorter) === 0
+    if (ratio >= 0.65 || (lengthDiff < 50 && shorter.length > 30) || (isPrefix && shorter.length > 25)) {
+      return true
+    }
+  }
+  
+  // Try removing common prefixes from both and comparing again
+  const removeCommonPrefixes = (s: string) => {
+    return s
+      .replace(/^(sat|act|ap)\s*/i, '')
+      .replace(/^(part-?|full-?)?time\s*/i, '')
+      .replace(/^(founder|president|captain|team)\s*/i, '')
+  }
+  
+  const norm1NoPrefix = removeCommonPrefixes(norm1)
+  const norm2NoPrefix = removeCommonPrefixes(norm2)
+  
+  if (norm1NoPrefix !== norm1 || norm2NoPrefix !== norm2) {
+    // If removing prefixes changed something, check similarity again
+    if (norm1NoPrefix === norm2NoPrefix) return true
+    const shorterNoPrefix = norm1NoPrefix.length < norm2NoPrefix.length ? norm1NoPrefix : norm2NoPrefix
+    const longerNoPrefix = norm1NoPrefix.length >= norm2NoPrefix.length ? norm1NoPrefix : norm2NoPrefix
+    if (longerNoPrefix.includes(shorterNoPrefix)) {
+      const ratio = shorterNoPrefix.length / longerNoPrefix.length
+      const isPrefix = longerNoPrefix.indexOf(shorterNoPrefix) === 0
+      // More lenient: 65%+ match OR prefix match with substantial content (>25 chars)
+      if (ratio >= 0.65 || (isPrefix && shorterNoPrefix.length > 25)) {
+        return true
+      }
+    }
+  }
+  
+  return false
 }
 
 const dedupeEntries = (entries: string[]): string[] => {
   const seen = new Set<string>()
   const deduped: string[] = []
 
-  entries.forEach(entry => {
+  // First pass: exact normalized duplicates
+  const exactMap = new Map<string, string>()
+  for (const entry of entries) {
     const key = normalizeMiscKey(entry)
-    if (!key) {
-      return
+    if (!key) continue
+    
+    if (!exactMap.has(key)) {
+      exactMap.set(key, entry.trim())
     }
-
-    if (!seen.has(key)) {
-      seen.add(key)
-      deduped.push(entry.trim())
+  }
+  
+  // Second pass: semantic similarity (catch near-duplicates)
+  const semanticDeduped: string[] = []
+  const seenSemantic = new Set<string>()
+  
+  for (const [normKey, originalEntry] of exactMap.entries()) {
+    let isDuplicate = false
+    
+    // Check against all already-seen entries
+    for (const seenKey of seenSemantic) {
+      if (areSemanticallySimilar(normKey, seenKey)) {
+        isDuplicate = true
+        // Keep the longer, more complete version
+        const existingEntry = exactMap.get(seenKey)
+        if (existingEntry && originalEntry.length > existingEntry.length) {
+          // Replace with longer version
+          const index = semanticDeduped.findIndex(e => normalizeMiscKey(e) === seenKey)
+          if (index !== -1) {
+            semanticDeduped[index] = originalEntry
+            seenSemantic.delete(seenKey)
+            seenSemantic.add(normKey)
+          }
+        }
+        break
+      }
     }
-  })
-
-  return deduped
+    
+    if (!isDuplicate) {
+      semanticDeduped.push(originalEntry)
+      seenSemantic.add(normKey)
+    }
+  }
+  
+  return semanticDeduped
 }
 
 /**

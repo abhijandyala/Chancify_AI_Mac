@@ -609,12 +609,12 @@ export default function CalculationsPage() {
 
   const displayInStateTuition = zipcodeTuitionData?.success
     ? zipcodeTuitionData.in_state_tuition ??
-      (zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseInStateTuition)
+      (zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseOutStateTuition)
     : baseInStateTuition;
 
   const displayOutStateTuition = zipcodeTuitionData?.success
     ? zipcodeTuitionData.out_state_tuition ??
-      (!zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseOutStateTuition)
+      (!zipcodeTuitionData.is_in_state ? zipcodeTuitionData.tuition : baseInStateTuition)
     : baseOutStateTuition;
 
   const tuitionBars = [

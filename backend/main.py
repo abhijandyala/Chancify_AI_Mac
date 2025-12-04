@@ -48,7 +48,7 @@ except ImportError as e:
 real_college_suggestions = None
 college_names_mapping = {}
 nickname_mapper = None
-college_subject_emphasis = {}
+college_subject_emphasis = None
 tuition_state_service = None
 college_tuition_service = None
 improvement_analysis_service = None
@@ -632,8 +632,15 @@ async def get_college_subject_emphasis(college_name: str):
     try:
         logger.info(f"Getting subject emphasis for: {college_name}")
 
+        # Verify service is available before use
+        emphasis_service = require_service(
+            college_subject_emphasis,
+            "College subject emphasis service",
+            "Ensure data.college_subject_emphasis imports successfully."
+        )
+
         # Get subject emphasis data
-        subject_data = college_subject_emphasis.get_subject_emphasis_with_cache(college_name, suggestion_cache)
+        subject_data = emphasis_service.get_subject_emphasis_with_cache(college_name, suggestion_cache)
 
         # Format for frontend
         subjects = []

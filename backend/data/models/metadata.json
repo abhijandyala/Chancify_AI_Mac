@@ -1,12 +1,12 @@
 {
-  "training_date": "2025-10-12T23:45:04.281220",
+  "training_date": "2025-12-04T18:13:34.543117",
   "version": "9.0_ultimate_combined",
   "data_sources": [
     "IPEDS 2023 (1,621 colleges)",
     "Reddit comprehensive (382 posts, EC/awards focus)",
     "Synthetic (10,620 samples)"
   ],
-  "num_samples": 10620,
+  "num_samples": 12556,
   "num_features_selected": 50,
   "selected_features": [
     "grades_score",
@@ -17,8 +17,12 @@
     "recommendations_score",
     "plan_timing_score",
     "major_fit_score",
+    "geography_residency_score",
+    "firstgen_diversity_score",
     "awards_publications_score",
+    "portfolio_audition_score",
     "legacy_score",
+    "conduct_record_score",
     "hs_reputation_score",
     "gpa_unweighted",
     "gpa_weighted",
@@ -29,21 +33,18 @@
     "ap_count",
     "honors_count",
     "class_rank_pct",
+    "class_size",
     "ec_count",
     "leadership_count",
     "years_commitment",
     "hours_per_week",
     "awards_count",
     "national_awards",
-    "first_gen",
-    "urm",
-    "geographic_diversity",
     "legacy",
     "recruited_athlete",
     "sat_median",
     "act_median",
     "test_policy_numeric",
-    "need_policy_numeric",
     "gpa_vs_avg",
     "sat_vs_median",
     "act_vs_median",
@@ -53,7 +54,6 @@
     "composite_vs_acceptance",
     "selectivity_match",
     "test_advantage",
-    "geographic_match",
     "legacy_boost",
     "first_gen_boost",
     "athlete_boost",
@@ -70,36 +70,36 @@
   ],
   "metrics": {
     "LR": {
-      "accuracy": 0.741368487131199,
-      "roc_auc": 0.8176094262138276,
-      "brier": 0.17330554314136176
+      "accuracy": 0.744692144373673,
+      "roc_auc": 0.790213973921709,
+      "brier": 0.17506593959372724
     },
     "RF": {
-      "accuracy": 0.7419962335216572,
-      "roc_auc": 0.8115873177823973,
-      "brier": 0.17564568391022253
+      "accuracy": 0.7425690021231423,
+      "roc_auc": 0.804206960760921,
+      "brier": 0.17565299910028895
     },
     "XGB": {
-      "accuracy": 0.7319522912743252,
-      "roc_auc": 0.8113657233225777,
-      "brier": 0.17685390532840123
+      "accuracy": 0.7367303609341825,
+      "roc_auc": 0.803267739928231,
+      "brier": 0.17825392933747278
     },
     "LGBM": {
-      "accuracy": 0.7325800376647834,
-      "roc_auc": 0.8097954316468772,
-      "brier": 0.17745860924999182
+      "accuracy": 0.7356687898089171,
+      "roc_auc": 0.8031250438614961,
+      "brier": 0.17840381112105105
     },
     "GB": {
-      "accuracy": 0.7445072190834903,
-      "roc_auc": 0.815282684385721,
-      "brier": 0.17400573811707767
+      "accuracy": 0.7457537154989384,
+      "roc_auc": 0.8057380193785937,
+      "brier": 0.17396768103769866
     },
     "Ensemble": {
-      "accuracy": 0.7432517263025737,
-      "roc_auc": 0.8178047162953233,
-      "brier": 0.17253485557068296
+      "accuracy": 0.7452229299363057,
+      "roc_auc": 0.8060889113459747,
+      "brier": 0.1737804481375121
     }
   },
   "best_model": "Ensemble",
-  "best_roc_auc": 0.8178047162953233
+  "best_roc_auc": 0.8060889113459747
 }

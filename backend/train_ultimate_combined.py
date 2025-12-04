@@ -37,8 +37,15 @@ def main():
     print("  3. Synthetic high-quality baseline")
     print()
 
-    # Use our best synthetic data (it's complete and high quality)
-    df = pd.read_csv('data/processed/training_data_real_all.csv')
+    # Prefer misc-augmented dataset if available
+    misc_path = Path('data/processed/training_data_real_all_misc.csv')
+    base_path = Path('data/processed/training_data_real_all.csv')
+    if misc_path.exists():
+        print("Loading MISC-augmented training data...")
+        df = pd.read_csv(misc_path)
+    else:
+        print("MISC-augmented file not found; using base training data.")
+        df = pd.read_csv(base_path)
 
     print(f"Training samples: {len(df):,}")
     print(f"Acceptance rate: {df['outcome'].mean():.1%}")

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/Input'
 import { ROXSelect } from '@/components/ui/ROXSelect'
 import { InfoIcon } from '@/components/ui/InfoIcon'
 import { InfoModal } from '@/components/ui/InfoModal'
-import { ChangeEvent, DragEvent, useEffect, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { COLLEGES } from '@/lib/colleges'
 import { FACTOR_DESCRIPTIONS } from '@/lib/factorDescriptions'
 import { motion } from 'framer-motion'
@@ -28,7 +28,10 @@ import {
   parseApplicationData,
   FIELD_LABELS,
   ApplicationMetric,
-  ProfileField
+  ProfileField,
+  MiscCategory,
+  getMiscCategory,
+  ParseDiagnostic
 } from '@/lib/applicationParser'
 
 export const dynamic = 'force-dynamic'
@@ -69,6 +72,30 @@ type Profile = {
   misc: string[]
 }
 
+const MISC_CATEGORY_META: Record<MiscCategory, { label: string; accent: string; bullet: string }> = {
+  testing: { label: 'Testing & Scores', accent: 'text-blue-200', bullet: 'text-blue-300' },
+  academics: { label: 'Academics & Coursework', accent: 'text-emerald-200', bullet: 'text-emerald-300' },
+  awards: { label: 'Awards & Honors', accent: 'text-purple-200', bullet: 'text-purple-300' },
+  projects: { label: 'Projects & Research', accent: 'text-sky-200', bullet: 'text-sky-300' },
+  leadership: { label: 'Leadership & Clubs', accent: 'text-orange-200', bullet: 'text-orange-300' },
+  service: { label: 'Service & Volunteering', accent: 'text-rose-200', bullet: 'text-rose-300' },
+  work: { label: 'Jobs & Internships', accent: 'text-amber-200', bullet: 'text-amber-300' },
+  general: { label: 'General Highlights', accent: 'text-gray-200', bullet: 'text-yellow-300' }
+}
+
+const MISC_CATEGORY_SEQUENCE: MiscCategory[] = [
+  'testing',
+  'academics',
+  'awards',
+  'projects',
+  'leadership',
+  'service',
+  'work',
+  'general'
+]
+
+const SHOW_PARSE_DEBUG_PANEL = process.env.NEXT_PUBLIC_PARSE_DEBUG === 'true'
+
 const initialProfile: Profile = {
   gpa_unweighted: '',
   gpa_weighted: '',
@@ -105,6 +132,14 @@ const initialProfile: Profile = {
   misc: []
 }
 
+const PROFILE_FIELD_DEFAULTS: Record<ProfileField, string> = (
+  Object.keys(FIELD_LABELS) as Array<ProfileField>
+).reduce((acc, field) => {
+  const defaultValue = initialProfile[field as keyof Profile]
+  acc[field] = typeof defaultValue === 'string' ? defaultValue : ''
+  return acc
+}, {} as Record<ProfileField, string>)
+
 type UpdateOptions = {
   autoFilled?: boolean
 }
@@ -129,6 +164,7 @@ export default function HomePage() {
 
   const [profile, setProfile] = useState<Profile>(initialProfile)
   const [autoFilledFields, setAutoFilledFields] = useState<Set<keyof Profile>>(new Set())
+  const [userEditedFields, setUserEditedFields] = useState<Set<ProfileField>>(new Set())
   const [miscInput, setMiscInput] = useState('')
   const [isParsingFile, setIsParsingFile] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
@@ -138,8 +174,52 @@ export default function HomePage() {
   const [autoFillInsights, setAutoFillInsights] = useState<AutoFillInsight[]>([])
   const [pendingOverrides, setPendingOverrides] = useState<Partial<Record<ProfileField, string>> | null>(null)
   const [pendingOverrideFields, setPendingOverrideFields] = useState<ProfileField[]>([])
+  const [overrideSelections, setOverrideSelections] = useState<Partial<Record<ProfileField, boolean>>>({})
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false)
+  const [parseDiagnostics, setParseDiagnostics] = useState<ParseDiagnostic[]>([])
+  const [showParseDebugger, setShowParseDebugger] = useState(SHOW_PARSE_DEBUG_PANEL)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const selectedOverrideCount = pendingOverrideFields.reduce(
+    (count, field) => (overrideSelections[field] ? count + 1 : count),
+    0
+  )
+  const miscGroups = useMemo(() => {
+    const grouped: Record<MiscCategory, string[]> = {
+      testing: [],
+      academics: [],
+      awards: [],
+      projects: [],
+      leadership: [],
+      service: [],
+      work: [],
+      general: []
+    }
+    profile.misc.forEach(item => {
+      const category = getMiscCategory(item)
+      grouped[category].push(item)
+    })
+    return grouped
+  }, [profile.misc])
+  const hasMiscEntries = profile.misc.length > 0
+
+  const isProfileFieldKey = (field: keyof Profile): field is ProfileField => {
+    return field in FIELD_LABELS
+  }
+
+  const touchProfileFields = (fields: ProfileField[], wasAutoFilled?: boolean) => {
+    if (!fields.length) return
+    setUserEditedFields(prev => {
+      const next = new Set(prev)
+      fields.forEach(field => {
+        if (wasAutoFilled) {
+          next.delete(field)
+        } else {
+          next.add(field)
+        }
+      })
+      return next
+    })
+  }
 
   const updateProfile = <K extends keyof Profile>(field: K, value: Profile[K], options?: UpdateOptions) => {
     setProfile(prev => ({ ...prev, [field]: value }))
@@ -152,39 +232,78 @@ export default function HomePage() {
       }
       return next
     })
+    if (isProfileFieldKey(field)) {
+      touchProfileFields([field], options?.autoFilled)
+    }
   }
 
-  const handleOverrideChoice = (accept: boolean) => {
+  const resetOverrideModalState = () => {
+    setPendingOverrides(null)
+    setPendingOverrideFields([])
+    setOverrideSelections({})
+    setIsOverrideModalOpen(false)
+  }
+
+  const applyOverrides = (fieldsToApply: ProfileField[]) => {
     if (!pendingOverrides || !pendingOverrideFields.length) {
-      setIsOverrideModalOpen(false)
+      resetOverrideModalState()
       return
     }
 
-    if (accept) {
-      updateProfileBulk(pendingOverrides, { autoFilled: true })
-      setAutoFillInsights(prev =>
-        prev.map(insight =>
-          insight.field && pendingOverrideFields.includes(insight.field)
-            ? { ...insight, status: 'applied' }
-            : insight
-        )
-      )
-      setUploadMessage(prev =>
-        prev ? `${prev} · Applied application overrides` : 'Applied application overrides'
-      )
-    } else {
-      setAutoFillInsights(prev =>
-        prev.map(insight =>
-          insight.field && pendingOverrideFields.includes(insight.field)
-            ? { ...insight, status: 'skipped' }
-            : insight
-        )
-      )
+    const updates: Partial<Record<ProfileField, string>> = {}
+    fieldsToApply.forEach(field => {
+      const newValue = pendingOverrides[field]
+      if (typeof newValue !== 'undefined') {
+        updates[field] = newValue
+      }
+    })
+
+    if (Object.keys(updates).length) {
+      updateProfileBulk(updates as Partial<Profile>, { autoFilled: true })
     }
 
-    setPendingOverrides(null)
-    setPendingOverrideFields([])
-    setIsOverrideModalOpen(false)
+    setAutoFillInsights(prev =>
+      prev.map(insight => {
+        if (!insight.field || !pendingOverrideFields.includes(insight.field)) {
+          return insight
+        }
+        if (fieldsToApply.includes(insight.field)) {
+          return { ...insight, status: 'applied' }
+        }
+        return { ...insight, status: 'skipped' }
+      })
+    )
+
+    const summary =
+      fieldsToApply.length > 0
+        ? `Applied ${fieldsToApply.length} override${fieldsToApply.length === 1 ? '' : 's'}`
+        : 'Kept your existing entries'
+
+    setUploadMessage(prev => (prev ? `${prev} · ${summary}` : summary))
+    resetOverrideModalState()
+  }
+
+  const applySelectedOverrides = () => {
+    const selected = pendingOverrideFields.filter(field => overrideSelections[field])
+    applyOverrides(selected)
+  }
+
+  const applyAllOverrides = () => applyOverrides(pendingOverrideFields)
+  const skipOverrides = () => applyOverrides([])
+
+  const toggleOverrideSelection = (field: ProfileField, useApplication: boolean) => {
+    setOverrideSelections(prev => ({
+      ...prev,
+      [field]: useApplication
+    }))
+  }
+
+  const setAllOverrideSelections = (useApplication: boolean) => {
+    const nextSelections: Partial<Record<ProfileField, boolean>> = {}
+    pendingOverrideFields.forEach(field => {
+      nextSelections[field] = useApplication
+    })
+    setOverrideSelections(nextSelections)
   }
 
   const updateProfileBulk = (updates: Partial<Profile>, options?: UpdateOptions) => {
@@ -202,6 +321,12 @@ export default function HomePage() {
       })
       return next
     })
+    const touchedFields = Object.keys(updates).filter(key =>
+      isProfileFieldKey(key as keyof Profile)
+    ) as ProfileField[]
+    if (touchedFields.length) {
+      touchProfileFields(touchedFields, options?.autoFilled)
+    }
   }
 
   const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -231,6 +356,7 @@ export default function HomePage() {
     setUploadError(null)
     setUploadMessage(null)
     setIsParsingFile(true)
+    setParseDiagnostics([])
 
     try {
       const text = await extractTextFromFile(file)
@@ -240,6 +366,7 @@ export default function HomePage() {
       }
 
       const parsed = await parseApplicationData(text)
+      setParseDiagnostics(parsed.diagnostics ?? [])
       const blankUpdates: Partial<Record<ProfileField, string>> = {}
       const conflictUpdates: Partial<Record<ProfileField, string>> = {}
       const keptFields = new Set<ProfileField>()
@@ -248,12 +375,19 @@ export default function HomePage() {
         const typedKey = key as ProfileField
         const currentValue = profile[typedKey]
         if (typeof currentValue === 'string') {
-          if (!currentValue.trim()) {
-            blankUpdates[typedKey] = value as string
-          } else if (currentValue.trim() === (value as string).trim()) {
+          const trimmedCurrent = currentValue.trim()
+          const incomingValue = (value as string).trim()
+          const defaultValue = PROFILE_FIELD_DEFAULTS[typedKey] ?? ''
+          const userHasValue = userEditedFields.has(typedKey)
+          const matchesDefault = defaultValue.trim() === trimmedCurrent
+          const canAutoFill = !userHasValue && (!trimmedCurrent || matchesDefault)
+
+          if (canAutoFill) {
+            blankUpdates[typedKey] = incomingValue
+          } else if (trimmedCurrent === incomingValue) {
             keptFields.add(typedKey)
           } else {
-            conflictUpdates[typedKey] = value as string
+            conflictUpdates[typedKey] = incomingValue
           }
         }
       })
@@ -297,10 +431,16 @@ export default function HomePage() {
       if (pendingFields.length) {
         setPendingOverrides(conflictUpdates)
         setPendingOverrideFields(pendingFields)
+        const defaultSelections: Partial<Record<ProfileField, boolean>> = {}
+        pendingFields.forEach(field => {
+          defaultSelections[field] = true
+        })
+        setOverrideSelections(defaultSelections)
         setIsOverrideModalOpen(true)
       } else {
         setPendingOverrides(null)
         setPendingOverrideFields([])
+        setOverrideSelections({})
         setIsOverrideModalOpen(false)
       }
 
@@ -327,6 +467,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('Failed to process application file', error)
       setUploadError('Failed to process file. Please ensure it is not password protected.')
+      setParseDiagnostics([])
     } finally {
       setIsParsingFile(false)
     }
@@ -798,6 +939,43 @@ export default function HomePage() {
                 </div>
               </div>
             )}
+
+            {SHOW_PARSE_DEBUG_PANEL && parseDiagnostics.length > 0 && (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Parser Debug</p>
+                    <p className="text-xs text-gray-400">
+                      Internal log of how the parser interpreted your upload.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowParseDebugger(prev => !prev)}
+                    className="px-3 py-2 text-xs rounded-lg border border-white/10 text-gray-200 hover:bg-white/5 transition"
+                  >
+                    {showParseDebugger ? 'Hide details' : 'Show details'}
+                  </button>
+                </div>
+                {showParseDebugger && (
+                  <div className="mt-3 max-h-48 overflow-y-auto space-y-3 text-xs">
+                    {parseDiagnostics.map((diag, index) => (
+                      <div
+                        key={`${diag.phase}-${index}-${diag.message}`}
+                        className="rounded-xl border border-white/5 bg-white/5 px-3 py-2"
+                      >
+                        <div className="text-[10px] uppercase tracking-wide text-yellow-300">
+                          {diag.phase}
+                        </div>
+                        <div className="text-gray-100">{diag.message}</div>
+                        {diag.details && (
+                          <div className="text-[11px] text-gray-500 mt-1">{diag.details}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </motion.section>
 
@@ -984,32 +1162,50 @@ export default function HomePage() {
               </div>
             </div>
 
-            {profile.misc.length === 0 ? (
+            {!hasMiscEntries ? (
               <p className="text-sm text-gray-400">
                 No misc notes yet. Upload an application above or add anything noteworthy manually.
               </p>
             ) : (
-              <ul className="space-y-3">
-                {profile.misc.map((item, index) => (
-                  <li
-                    key={`${item}-${index}`}
-                    className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3"
-                  >
-                    <span className="text-yellow-300 mt-1">•</span>
-                    <div className="flex-1 text-sm text-white">{item}</div>
-                    <button
-                      onClick={() => {
-                        const next = profile.misc.filter((_, i) => i !== index)
-                        updateProfile('misc', next)
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-300 transition"
-                      aria-label="Remove misc item"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-6">
+                {MISC_CATEGORY_SEQUENCE.map(category => {
+                  const entries = miscGroups[category]
+                  if (!entries.length) return null
+                  const meta = MISC_CATEGORY_META[category]
+                  return (
+                    <div key={category}>
+                      <div className={`text-xs font-semibold uppercase tracking-wide ${meta.accent}`}>
+                        {meta.label}
+                      </div>
+                      <ul className="mt-3 space-y-3">
+                        {entries.map((item, index) => (
+                          <li
+                            key={`${category}-${item}-${index}`}
+                            className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3"
+                          >
+                            <span className={`${meta.bullet} mt-1`}>•</span>
+                            <div className="flex-1 text-sm text-white">{item}</div>
+                            <button
+                              onClick={() => {
+                                const next = [...profile.misc]
+                                const removeIndex = next.indexOf(item)
+                                if (removeIndex !== -1) {
+                                  next.splice(removeIndex, 1)
+                                  updateProfile('misc', next)
+                                }
+                              }}
+                              className="p-1 text-gray-400 hover:text-red-300 transition"
+                              aria-label="Remove misc item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
             )}
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -1149,12 +1345,12 @@ export default function HomePage() {
         )}
 
         {isOverrideModalOpen && pendingOverrides && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => handleOverrideChoice(false)}
+              onClick={skipOverrides}
             />
-            <div className="relative w-full max-w-xl bg-[#0b0b0f] border border-white/10 rounded-2xl p-6 shadow-2xl">
+            <div className="relative w-full max-w-2xl bg-[#0b0b0f] border border-white/10 rounded-3xl p-6 sm:p-7 shadow-2xl">
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-yellow-500/20 text-yellow-300 rounded-lg">
                   <ListChecks className="w-5 h-5" />
@@ -1162,50 +1358,113 @@ export default function HomePage() {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Override existing values?</h3>
                   <p className="text-sm text-gray-400 mt-1">
-                    We found application details for fields you already filled in. Choose whether to
-                    keep your current entries or replace them with the imported values.
+                    We found application details for fields you already filled in. Decide which ones
+                    should replace your current entries.
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 max-h-60 overflow-y-auto pr-1 space-y-3">
-                {pendingOverrideFields.map(field => (
-                  <div
-                    key={field}
-                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+              <div className="mt-4 flex flex-col gap-3 text-sm text-gray-300 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  {selectedOverrideCount} of {pendingOverrideFields.length}{' '}
+                  {pendingOverrideFields.length === 1 ? 'field' : 'fields'} set to use application values
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAllOverrideSelections(false)}
+                    className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:bg-white/5 transition"
                   >
-                    <div className="text-white font-semibold">
-                      {FIELD_LABELS[field] || field}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Current:&nbsp;
-                      <span className="text-white">
-                        {typeof profile[field] === 'string' && profile[field] ? profile[field] : '—'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-yellow-200 mt-1">
-                      Application:&nbsp;
-                      <span className="text-white">
-                        {pendingOverrides[field] ?? '—'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                    Keep all
+                  </button>
+                  <button
+                    onClick={() => setAllOverrideSelections(true)}
+                    className="px-3 py-1.5 rounded-lg border border-yellow-400/40 text-xs text-yellow-200 hover:bg-yellow-400/10 transition"
+                  >
+                    Use all
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <div className="mt-5 max-h-64 overflow-y-auto pr-1 space-y-3">
+                {pendingOverrideFields.map(field => {
+                  const useApplication = overrideSelections[field] ?? true
+                  return (
+                    <div
+                      key={field}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-white font-semibold">
+                            {FIELD_LABELS[field] || field}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Current:&nbsp;
+                            <span className="text-white">
+                              {typeof profile[field] === 'string' && profile[field] ? profile[field] : '—'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-yellow-200 mt-1">
+                            Application:&nbsp;
+                            <span className="text-white">
+                              {pendingOverrides[field] ?? '—'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-2 text-xs sm:flex-row">
+                        <button
+                          onClick={() => toggleOverrideSelection(field, false)}
+                          className={`flex-1 rounded-xl border px-3 py-2 transition ${
+                            !useApplication
+                              ? 'border-white/30 bg-white/10 text-white'
+                              : 'border-white/10 text-gray-300 hover:bg-white/5'
+                          }`}
+                        >
+                          Keep my value
+                        </button>
+                        <button
+                          onClick={() => toggleOverrideSelection(field, true)}
+                          className={`flex-1 rounded-xl border px-3 py-2 transition ${
+                            useApplication
+                              ? 'border-yellow-400/40 bg-yellow-400/20 text-yellow-50'
+                              : 'border-white/10 text-gray-300 hover:bg-white/5'
+                          }`}
+                        >
+                          Use application value
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
-                  onClick={() => handleOverrideChoice(false)}
-                  className="flex-1 px-4 py-3 rounded-xl border border-white/15 text-white/80 hover:bg-white/10 transition"
+                  onClick={skipOverrides}
+                  className="px-4 py-3 rounded-xl border border-white/15 text-white/80 hover:bg-white/10 transition sm:flex-1"
                 >
-                  Keep My Values
+                  Keep Current Values
                 </button>
-                <button
-                  onClick={() => handleOverrideChoice(true)}
-                  className="flex-1 px-4 py-3 rounded-xl bg-yellow-400 text-black font-semibold hover:bg-yellow-300 transition"
-                >
-                  Use Application Values
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-1">
+                  <button
+                    onClick={applyAllOverrides}
+                    className="px-4 py-3 rounded-xl border border-yellow-400/40 text-yellow-100 hover:bg-yellow-400/10 transition"
+                  >
+                    Apply All ({pendingOverrideFields.length})
+                  </button>
+                  <button
+                    onClick={applySelectedOverrides}
+                    disabled={!selectedOverrideCount}
+                    className={`px-4 py-3 rounded-xl font-semibold transition ${
+                      selectedOverrideCount
+                        ? 'bg-yellow-400 text-black hover:bg-yellow-300'
+                        : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Apply Selected ({selectedOverrideCount})
+                  </button>
+                </div>
               </div>
             </div>
           </div>

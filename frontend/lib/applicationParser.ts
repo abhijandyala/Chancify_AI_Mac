@@ -790,6 +790,16 @@ function fixTruncatedEntry(entry: string): string {
     fixed = words.join(" ").trim();
   }
 
+  // If still missing punctuation and the last word is a tiny tail, drop it to avoid truncated endings
+  if (words.length > 0 && !/[.!?]$/.test(fixed.trim())) {
+    const tail = words[words.length - 1].replace(/[^\w]/g, "");
+    const commonKeep = new Set(["and", "the", "for", "per", "of", "in", "on"]);
+    if (tail.length <= 3 && !commonKeep.has(tail.toLowerCase())) {
+      words.pop();
+      fixed = words.join(" ").trim();
+    }
+  }
+
   // Ensure entry ends properly - add period if it's a complete thought but missing punctuation
   if (fixed && fixed.length > 20 && !/[.!?:]$/.test(fixed)) {
     // Check if it ends with a complete phrase (not mid-sentence)
@@ -861,6 +871,13 @@ const normalizeMiscKey = (value: string): string => {
     /^testing\s+detail\s*[:•\-]?\s*/i,
     /^award\/honor\s*[:•\-]?\s*/i,
     /^honors?\s*&?\s*awards?\s*[•\-\*]?\s*/i,
+    /^competition\s+highlight\s*[:•\-]?\s*/i,
+    /^research\s+highlight\s*[:•\-]?\s*/i,
+    /^internship\s+highlight\s*[:•\-]?\s*/i,
+    /^leadership\s+highlight\s*[:•\-]?\s*/i,
+    /^service\s+highlight\s*[:•\-]?\s*/i,
+    /^entrepreneurship\s+highlight\s*[:•\-]?\s*/i,
+    /^summer\s+program\s*[:•\-]?\s*/i,
     /^independent\s+project\s*[:•\-]?\s*/i,
     /^education\s+detail\s*[:•\-]?\s*/i,
     /^ap\s+exams?\s*[:•\-]?\s*/i,
@@ -917,6 +934,13 @@ const areSemanticallySimilar = (norm1: string, norm2: string): boolean => {
       (lengthDiff < 50 && shorter.length > 30) ||
       (isPrefix && shorter.length > 25)
     ) {
+      return true;
+    }
+
+    // Additional containment rule: if the shorter phrase (>=3 words, >=12 chars) is fully contained,
+    // treat it as similar even when the length ratio is low (captures nested award/competition repeats)
+    const shorterWords = shorter.split(/\s+/).filter(Boolean);
+    if (shorter.length >= 12 && shorterWords.length >= 3) {
       return true;
     }
   }

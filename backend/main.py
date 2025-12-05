@@ -261,6 +261,7 @@ allowed_origins = list({
 allowed_origin_suffixes = (
     ".ngrok-free.dev",
     ".railway.app",
+    ".vercel.app",
 )
 
 

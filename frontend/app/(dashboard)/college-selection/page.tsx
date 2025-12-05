@@ -6,7 +6,6 @@ import { Search, Building2, Users, DollarSign, GraduationCap, ChevronRight, Star
 import { Button } from '@/components/ui/Button'
 import { useRouter } from 'next/navigation'
 import { getCollegeSuggestions, searchColleges, type CollegeSuggestionsRequest, type CollegeSuggestion, type CollegeSearchResult } from '@/lib/api'
-import Loader from '@/components/Loader'
 import { useTuitionByZipcode } from '@/lib/hooks/useTuitionByZipcode'
 import { useMultipleTuitionByZipcode } from '@/lib/hooks/useMultipleTuitionByZipcode'
 
@@ -128,7 +127,6 @@ export default function CollegeSelectionPage() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
   const [isLoadingSearch, setIsLoadingSearch] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showLoader, setShowLoader] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   
   // Get user profile from localStorage
@@ -878,7 +876,7 @@ export default function CollegeSelectionPage() {
             if (zipcode) {
               localStorage.setItem('userZipcode', zipcode)
             }
-            setShowLoader(true)
+            router.push('/calculate')
           }}
           disabled={selectedColleges.length === 0 || !zipcode || zipcode.length < 5}
         >
@@ -888,16 +886,6 @@ export default function CollegeSelectionPage() {
           </span>
         </Button>
       </motion.div>
-
-      {/* Loader */}
-      {showLoader && (
-        <Loader
-          onComplete={() => {
-            router.push('/calculate')
-          }}
-          duration={5}
-        />
-      )}
     </div>
   )
 }

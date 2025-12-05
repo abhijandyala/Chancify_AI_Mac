@@ -8,6 +8,7 @@ import { COLLEGES } from '@/lib/colleges';
 import { useCollegeSubjectEmphasis } from '@/lib/hooks/useCollegeSubjectEmphasis';
 import { useCollegeTuitionByZipcode } from '@/lib/hooks/useCollegeTuitionByZipcode';
 import { useImprovementAnalysis } from '@/lib/hooks/useImprovementAnalysis';
+import Loader from '@/components/Loader';
 import { getApiBaseUrl, withNgrokHeaders } from '@/lib/config';
 import {
   ResponsiveContainer,
@@ -608,14 +609,7 @@ export default function CalculationsPage() {
 
   // Early returns - MUST come after all hooks
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-ROX_BLACK flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-ROX_GOLD border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-white">Loading calculations...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Calculating your chances..." />;
   }
 
   if (!collegeData) {

@@ -1,44 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 interface LoaderProps {
-  onComplete: () => void;
-  duration?: number; // in seconds
+  onComplete?: () => void;
+  duration?: number; // optional; if provided, auto-complete after duration seconds
+  message?: string;
 }
 
-export default function Loader({ onComplete, duration = 5 }: LoaderProps) {
-  const [timeLeft, setTimeLeft] = useState(duration);
-  const [isVisible, setIsVisible] = useState(true);
-
+export default function Loader({ onComplete, duration, message = 'Calculating your chances...' }: LoaderProps) {
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          // Start fade out animation
-          setTimeout(() => {
-            setIsVisible(false);
-            setTimeout(() => {
-              onComplete();
-            }, 300); // Wait for fade out to complete
-          }, 100);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [onComplete, duration]);
-
-  if (!isVisible) return null;
+    if (!duration || !onComplete) return;
+    const timer = setTimeout(() => {
+      onComplete();
+    }, duration * 1000);
+    return () => clearTimeout(timer);
+  }, [duration, onComplete]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm transition-opacity duration-300">
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-black to-neutral-900" />
-      
+
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center justify-center space-y-8">
         {/* Loader text with shimmer effect */}
@@ -62,20 +45,9 @@ export default function Loader({ onComplete, duration = 5 }: LoaderProps) {
 
         {/* Timer */}
         <div className="text-center">
-          <div className="text-2xl font-mono text-amber-400 mb-2">
-            {timeLeft}
-          </div>
           <div className="text-sm text-neutral-400">
-            Calculating your chances...
+            {message}
           </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-64 h-1 bg-neutral-800 rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${((duration - timeLeft) / duration) * 100}%` }}
-          />
         </div>
       </div>
 
@@ -97,13 +69,13 @@ export default function Loader({ onComplete, duration = 5 }: LoaderProps) {
             width: 60px;
             height: 60px;
           }
-          
+
           .spinner span {
             width: 35px;
             height: 7px;
             border-radius: 6px;
           }
-          
+
           .spinner span:nth-child(1) { --left: 80px; }
           .spinner span:nth-child(2) { --left: 70px; }
           .spinner span:nth-child(3) { left: 60px; }

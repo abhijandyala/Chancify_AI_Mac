@@ -196,7 +196,7 @@ function ImprovementCard({ area, current, target, impact, priority, description,
   description?: string;
   actionable_steps?: string[];
 }) {
-  const displayImpact = Math.min(Math.max(impact ?? 0, 0), 0.5); // clamp to avoid overstating impact
+  const displayImpact = Math.min(Math.max(impact ?? 0, 0), 5); // cap to 5% per item to avoid overstating
   return (
     <motion.div
       className="relative group rounded-2xl bg-black border border-yellow-500/30 p-7 md:p-8 hover:border-yellow-400/60 transition-all duration-300 min-h-[420px] shadow-[0_0_0_1px_rgba(234,179,8,0.08),0_10px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_0_1px_rgba(234,179,8,0.25),0_14px_40px_rgba(0,0,0,0.7)]"
@@ -558,7 +558,10 @@ export default function CalculationsPage() {
   // Compute combined impact based only on visible items, cap at 35% to mirror backend logic
   // MUST be calculated after hooks but before early returns
   const combinedVisibleImpact = React.useMemo(() => {
-    const partialSum = visibleImprovements.reduce((sum: number, imp: any) => sum + Math.min(Math.max(imp.impact || 0, 0), 0.5), 0)
+    const partialSum = visibleImprovements.reduce(
+      (sum: number, imp: any) => sum + Math.min(Math.max(imp.impact || 0, 0), 5),
+      0
+    )
     return Math.min(partialSum, 5) // keep combined uplift modest
   }, [visibleImprovements])
 

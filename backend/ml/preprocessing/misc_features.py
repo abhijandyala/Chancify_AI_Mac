@@ -204,6 +204,17 @@ def compute_misc_uplift(signals: Dict[str, float], acceptance_rate: float) -> fl
     Monotone-positive, capped by selectivity band.
     """
     uplift = 0.0
+    acceptance_rate = float(max(0.02, min(0.98, acceptance_rate or 0.5)))
+
+    # Selectivity multiplier: temper uplift for more selective schools
+    if acceptance_rate < 0.10:
+        selectivity_mult = 0.6
+    elif acceptance_rate < 0.20:
+        selectivity_mult = 0.75
+    elif acceptance_rate < 0.35:
+        selectivity_mult = 0.9
+    else:
+        selectivity_mult = 1.0
 
     # Core experiential boosts
     if signals["has_research"]:
@@ -246,10 +257,9 @@ def compute_misc_uplift(signals: Dict[str, float], acceptance_rate: float) -> fl
     if strong_counts >= 2:
         uplift += 0.01
 
-    # Cap uplift by selectivity band
-    acceptance_rate = float(max(0.02, min(0.98, acceptance_rate or 0.5)))
-    # Slightly tempered caps to avoid over-uplift; can be tuned later
-    hard_cap = 0.07 if acceptance_rate < 0.15 else 0.09 if acceptance_rate < 0.3 else 0.11
+    # Apply selectivity scaling and cap by selectivity band
+    uplift *= selectivity_mult
+    hard_cap = 0.06 if acceptance_rate < 0.10 else 0.08 if acceptance_rate < 0.25 else 0.10
     uplift = min(uplift, hard_cap)
     return uplift
 

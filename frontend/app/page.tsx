@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Script from 'next/script'
 import ROXNav from '@/components/layout/ROXNav'
 import ROXHero from '@/components/ui/ROXHero'
 import ROXClientMarquee from '@/components/ui/ROXClientMarquee'
@@ -13,6 +14,41 @@ import ROXMegaFooter from '@/components/ui/ROXMegaFooter'
 import SophisticatedBackground from '@/components/ui/SophisticatedBackground'
 import CookieBanner from '@/components/ui/CookieBanner'
 import CookiesPolicyModal from '@/components/ui/CookiesPolicyModal'
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'spline-viewer': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        url?: string
+      }
+    }
+  }
+}
+
+const SPLINE_SCENE = 'https://prod.spline.design/DdK2yhoCZ5ObcJ8o/scene.splinecode'
+
+function SplineBackground() {
+  return (
+    <>
+      <Script
+        src="https://unpkg.com/@splinetool/viewer@1.12.6/build/spline-viewer.js"
+        type="module"
+        strategy="afterInteractive"
+      />
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <spline-viewer
+          url={SPLINE_SCENE}
+          style={{
+            width: '100%',
+            height: '100%',
+            opacity: 0.9,
+            filter: 'saturate(0.9)',
+          }}
+        />
+      </div>
+    </>
+  )
+}
 
 export default function ROXLandingPage() {
   const [showCookiesModal, setShowCookiesModal] = useState(false)
@@ -31,6 +67,7 @@ export default function ROXLandingPage() {
 
   return (
     <main className="bg-background text-foreground rox-bg-pattern relative">
+      <SplineBackground />
       <SophisticatedBackground />
       <ROXNav />
       <ROXHero />

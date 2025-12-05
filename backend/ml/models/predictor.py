@@ -56,6 +56,9 @@ class AdmissionPredictor:
         self.feature_selector = None
         self.metadata = {}
         self.feature_names = []
+        self.calibrator = None
+        self.calibrator_base_model = None
+        self.calibration_info = None
         
         # Load elite calibration data
         self.elite_calibration = self._load_elite_calibration()
@@ -237,6 +240,21 @@ class AdmissionPredictor:
                 if filepath.exists():
                     self.models[name] = joblib.load(filepath)
                     print(f"DEBUG: Successfully loaded {name} model")
+
+            # Load optional calibration artifacts
+            calibrator_file = self.model_dir / 'calibrated_model.joblib'
+            calibration_meta = self.model_dir / 'calibration_metadata.json'
+            if calibrator_file.exists():
+                self.calibrator = joblib.load(calibrator_file)
+                print("DEBUG: Loaded calibrated_model.joblib")
+                if calibration_meta.exists():
+                    with open(calibration_meta, 'r') as f:
+                        self.calibration_info = json.load(f)
+                        self.calibrator_base_model = self.calibration_info.get('base_model', 'ensemble')
+                        print(f"DEBUG: Calibrator base model: {self.calibrator_base_model}")
+                else:
+                    self.calibrator_base_model = 'ensemble'
+                    print("DEBUG: Calibration metadata missing; defaulting calibrator_base_model to 'ensemble'")
             
             print(f"DEBUG: Final result - Loaded {len(self.models)} models from {self.model_dir}")
             print(f"DEBUG: Available models: {list(self.models.keys())}")
@@ -320,6 +338,17 @@ class AdmissionPredictor:
         
         # ML prediction
         ml_prob = model.predict_proba(features_scaled)[0, 1]
+
+        # Apply optional calibration if available for this base model
+        if self.calibrator is not None:
+            base_model_for_cal = self.calibrator_base_model or 'ensemble'
+            if model_name == base_model_for_cal:
+                try:
+                    calibrated_prob = self.calibrator.predict_proba(features_scaled)[0, 1]
+                    ml_prob = float(np.clip(calibrated_prob, 0.0001, 0.9999))
+                    print(f"DEBUG: Applied calibrator for model {model_name} -> {ml_prob:.4f}")
+                except Exception as e:
+                    print(f"Warning: calibrator application failed ({e}); using uncalibrated prob.")
         
         # Estimate ML confidence based on prediction certainty
         # More extreme predictions (close to 0 or 1) = higher confidence

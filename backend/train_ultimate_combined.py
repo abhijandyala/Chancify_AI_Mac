@@ -297,15 +297,68 @@ def main():
     else:
         print(f"Gap to 85%: {0.85 - best_roc:.4f}")
 
-    # Save best models
+    # Save best models + calibration artifacts
     output_path = Path('data/models')
+    output_path.mkdir(parents=True, exist_ok=True)
+
     best_model_name = max(results, key=lambda k: results[k]['roc_auc'])
+    model_key_map = {
+        'LR': 'logistic_regression',
+        'RF': 'random_forest',
+        'XGB': 'xgboost',
+        'LGBM': 'lightgbm',
+        'GB': 'gradient_boosting',
+        'Ensemble': 'ensemble'
+    }
+    best_model_key = model_key_map.get(best_model_name, best_model_name)
+
+    calibration_info = None
+    calibrated_model = None
+
+    try:
+        print("\n" + "=" * 60)
+        print("CALIBRATING BEST MODEL (isotonic on holdout)")
+        print("=" * 60)
+        base_model = models[best_model_key]
+        calibrator = CalibratedClassifierCV(base_model, method='isotonic', cv='prefit')
+        calibrator.fit(X_test_scaled, y_test)
+
+        raw_pred = results[best_model_name]
+        calibrated_pred = calibrator.predict_proba(X_test_scaled)[:, 1]
+        cal_auc = roc_auc_score(y_test, calibrated_pred)
+        cal_brier = brier_score_loss(y_test, calibrated_pred)
+
+        calibration_info = {
+            'base_model': best_model_key,
+            'method': 'isotonic',
+            'calibration_set_size': int(len(y_test)),
+            'raw_brier': float(raw_pred['brier']),
+            'calibrated_brier': float(cal_brier),
+            'raw_auc': float(raw_pred['roc_auc']),
+            'calibrated_auc': float(cal_auc)
+        }
+
+        calibrated_model = calibrator
+        results['Calibrated'] = {
+            'accuracy': accuracy_score(y_test, (calibrated_pred > 0.5).astype(int)),
+            'roc_auc': cal_auc,
+            'brier': cal_brier
+        }
+
+        print(f"Calibrated (isotonic) ROC-AUC: {cal_auc:.4f} | Brier: {cal_brier:.4f}")
+    except Exception as e:
+        print(f"Calibration step failed (will continue without calibration artifact): {e}")
 
     for name, model in models.items():
         joblib.dump(model, output_path / f'{name}.joblib')
 
     joblib.dump(scaler, output_path / 'scaler.joblib')
     joblib.dump(selector, output_path / 'feature_selector.joblib')
+
+    if calibrated_model is not None and calibration_info is not None:
+        joblib.dump(calibrated_model, output_path / 'calibrated_model.joblib')
+        with open(output_path / 'calibration_metadata.json', 'w') as f:
+            json.dump(calibration_info, f, indent=2)
 
     metadata = {
         'training_date': datetime.now().isoformat(),
@@ -321,14 +374,18 @@ def main():
         'models_trained': list(models.keys()),
         'metrics': results,
         'best_model': best_model_name,
-        'best_roc_auc': float(best_roc)
+        'best_model_key': best_model_key,
+        'best_roc_auc': float(best_roc),
+        'calibration': calibration_info
     }
 
     with open(output_path / 'metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
 
     print("\nModels saved!")
-    print(f"Best model: {best_model_name}")
+    print(f"Best model: {best_model_name} (key: {best_model_key})")
+    if calibration_info:
+        print(f"Calibration saved for {best_model_key}: Brier {calibration_info['calibrated_brier']:.4f}")
 
     return best_roc
 

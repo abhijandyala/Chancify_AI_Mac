@@ -137,7 +137,15 @@ class RealCollegeSuggestions:
                 college_info['probability'] = probability
                 
                 college_data.append(college_info)
-        
+
+        # Deduplicate by college name, keep the entry with highest major_fit_score
+        unique_colleges = {}
+        for c in college_data:
+            name = c['name']
+            if name not in unique_colleges or c['major_fit_score'] > unique_colleges[name]['major_fit_score']:
+                unique_colleges[name] = c
+        college_data = list(unique_colleges.values())
+
         # Sort by major fit score first, then by probability
         college_data.sort(key=lambda x: (x['major_fit_score'], x['probability']), reverse=True)
 

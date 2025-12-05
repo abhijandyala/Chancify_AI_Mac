@@ -46,9 +46,11 @@ class RealIPEDSMajorMapping:
                         if not majors_list:
                             continue
 
-                        # Ensure college entry exists
-                        if college_name not in self.college_major_data:
-                            self.college_major_data[college_name] = {'majors': []}
+                        # Replace existing entry with heuristic majors (override bad historical data)
+                        existing_unitid = None
+                        if college_name in self.college_major_data:
+                            existing_unitid = self.college_major_data[college_name].get('unitid')
+                        self.college_major_data[college_name] = {'majors': [], 'unitid': existing_unitid}
 
                         for rank_idx, major in enumerate(majors_list, start=1):
                             mapped_major = self.map_major_name(major)
@@ -59,17 +61,22 @@ class RealIPEDSMajorMapping:
                                 self.major_mapping[mapped_major].append({'college': college_name})
 
                             # Update college_major_data
-                            existing = next((m for m in self.college_major_data[college_name]['majors'] if m.get('name') == mapped_major), None)
-                            if existing:
-                                existing['percentage'] = 100.0
-                                existing['rank'] = rank_idx
-                            else:
-                                self.college_major_data[college_name]['majors'].append({
-                                    'name': mapped_major,
-                                    # Treat heuristic list as strong signals: full percentage, rank orders strength
-                                    'percentage': 100.0,
-                                    'rank': rank_idx
-                                })
+                            self.college_major_data[college_name]['majors'].append({
+                                'name': mapped_major,
+                                # Treat heuristic list as strong signals: full percentage, rank orders strength
+                                'percentage': 100.0,
+                                'rank': rank_idx
+                            })
+
+            # Rebuild major_mapping from college_major_data to purge stale associations
+            rebuilt_mapping = {}
+            for college_name, data in self.college_major_data.items():
+                for major_info in data.get('majors', []):
+                    major_name = major_info.get('name')
+                    if not major_name:
+                        continue
+                    rebuilt_mapping.setdefault(major_name, []).append({'college': college_name})
+            self.major_mapping = rebuilt_mapping
 
             print(f"Loaded real major mapping: {len(self.major_mapping)} majors, {len(self.college_major_data)} colleges")
             

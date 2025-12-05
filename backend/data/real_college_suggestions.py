@@ -110,6 +110,10 @@ class RealCollegeSuggestions:
         ipeds_major = real_ipeds_mapping.map_major_name(major)
         all_colleges = real_ipeds_mapping.get_colleges_for_major(ipeds_major, limit=100)
         
+        def is_cosmetology_school(name: str) -> bool:
+            n = name.lower()
+            return any(k in n for k in ["beauty", "cosmetology", "salon", "spa", "barber"])
+
         # Convert to college data with probabilities
         college_data = []
         for college_name in all_colleges:
@@ -145,6 +149,10 @@ class RealCollegeSuggestions:
             if name not in unique_colleges or c['major_fit_score'] > unique_colleges[name]['major_fit_score']:
                 unique_colleges[name] = c
         college_data = list(unique_colleges.values())
+
+        # Hard filter: drop cosmetology/beauty/barber schools for non-VPA majors
+        if ipeds_major not in ["Visual & Performing Arts", "Fashion Design", "Fine Arts"]:
+            college_data = [c for c in college_data if not is_cosmetology_school(c['name'])]
 
         # Sort by major fit score first, then by probability
         college_data.sort(key=lambda x: (x['major_fit_score'], x['probability']), reverse=True)
@@ -217,6 +225,10 @@ class RealCollegeSuggestions:
         # Get all colleges that offer this major
         ipeds_major = real_ipeds_mapping.map_major_name(major)
         all_colleges = real_ipeds_mapping.get_colleges_for_major(ipeds_major, limit=50)
+
+        def is_cosmetology_school(name: str) -> bool:
+            n = name.lower()
+            return any(k in n for k in ["beauty", "cosmetology", "salon", "spa", "barber"])
         
         # Convert to college data and sort by major fit score
         college_data = []
@@ -243,6 +255,10 @@ class RealCollegeSuggestions:
                 
                 college_data.append(college_info)
         
+        # Hard filter: drop cosmetology/beauty/barber schools for non-VPA majors
+        if ipeds_major not in ["Visual & Performing Arts", "Fashion Design", "Fine Arts"]:
+            college_data = [c for c in college_data if not is_cosmetology_school(c['name'])]
+
         # Sort by major fit score
         college_data.sort(key=lambda x: x['major_fit_score'], reverse=True)
         

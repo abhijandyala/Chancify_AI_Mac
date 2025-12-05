@@ -89,7 +89,6 @@ export default function Loader({ onComplete, duration = 5 }: LoaderProps) {
           justify-content: center;
           align-items: center;
           border-radius: 50%;
-          margin-left: -60px;
           perspective: 600px;
         }
 
@@ -97,7 +96,6 @@ export default function Loader({ onComplete, duration = 5 }: LoaderProps) {
           .spinner {
             width: 60px;
             height: 60px;
-            margin-left: -75px;
           }
           
           .spinner span {

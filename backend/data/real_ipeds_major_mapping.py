@@ -442,7 +442,52 @@ class RealIPEDSMajorMapping:
             'Pre-Operations Technology': 'Engineering Technologies & Related Fields'
         }
         
-        return major_mappings.get(user_major, user_major)
+        mapped = major_mappings.get(user_major)
+        if mapped:
+            return mapped
+
+        name = (user_major or "").strip()
+        lower = name.lower()
+
+        def has(*keywords):
+            return any(k in lower for k in keywords)
+
+        if has('engineer', 'mechatronic', 'robotic', 'aerospace', 'civil', 'electrical', 'mechanical', 'chemical', 'industrial', 'materials', 'automotive'):
+            return 'Engineering'
+        if has('computer', 'software', 'cyber', 'network', 'ai', 'machine learning', 'data', 'information', 'hci', 'ui/ux', 'game', 'app', 'web', 'cloud'):
+            return 'Computer & Information Sciences'
+        if has('business', 'finance', 'account', 'marketing', 'management', 'supply chain', 'logistics', 'real estate', 'entrepreneur', 'commerce', 'actuarial', 'analytics'):
+            return 'Business, Management, Marketing & Support'
+        if has('nurs', 'health', 'med', 'clinical', 'therapy', 'pharm', 'veter', 'dental', 'nutrition', 'kinesi', 'athletic', 'public health', 'occupational', 'speech', 'radiologic', 'respiratory'):
+            return 'Health Professions & Related Programs'
+        if has('bio', 'neuro', 'genetic', 'immuno', 'zoology', 'botany', 'marine', 'ecology', 'environment', 'plant', 'animal', 'biotech', 'biomedical'):
+            return 'Biological & Biomedical Sciences'
+        if has('chem', 'physics', 'geology', 'earth', 'meteorology', 'astrophysics', 'materials science', 'astronomy', 'oceanography', 'climate', 'meteorology'):
+            return 'Physical Sciences'
+        if has('math', 'stat', 'applied mathematics', 'quantitative'):
+            return 'Mathematics & Statistics'
+        if has('psych'):
+            return 'Psychology'
+        if has('political', 'policy', 'sociol', 'anthrop', 'crimin', 'geograph', 'international', 'global studies', 'urban studies', 'urban planning', 'economics', 'cognitive science'):
+            return 'Social Sciences'
+        if has('law', 'legal', 'paralegal'):
+            return 'Legal Professions & Studies'
+        if has('education', 'teaching', 'ed '):
+            return 'Education'
+        if has('art', 'music', 'dance', 'film', 'theater', 'theatre', 'design', 'fashion', 'graphic', 'studio', 'fine arts', 'photography', 'screenwriting', 'animation', 'perform'):
+            return 'Visual & Performing Arts'
+        if has('journalism', 'media', 'communication', 'broadcast', 'public relations', 'advertis'):
+            return 'Communications Technologies & Support Services'
+        if has('philosophy', 'religion', 'theology'):
+            return 'Philosophy & Religious Studies'
+        if has('language', 'linguistics', 'french', 'spanish', 'german', 'italian', 'japanese', 'korean', 'arabic', 'russian', 'chinese', 'portuguese', 'latin', 'hebrew', 'classical'):
+            return 'Foreign Languages, Literatures & Linguistics'
+        if has('agric', 'hort', 'animal science', 'forestry', 'fisheries', 'soil', 'agribusiness'):
+            return 'CIP 1'  # Agriculture & related
+        if has('construction', 'mechanic', 'repair', 'manufacturing', 'industrial design', 'automotive', 'mechatronics'):
+            return 'Engineering Technologies & Related Fields'
+
+        return 'Liberal Arts & Sciences, General Studies & Humanities'
 
 # Global instance
 real_ipeds_mapping = RealIPEDSMajorMapping()

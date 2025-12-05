@@ -52,6 +52,7 @@ RUN set -e \
 # These files are referenced by data services using relative paths
 COPY Tuition_InOut_2023.csv /app/Tuition_InOut_2023.csv
 COPY College_State_Zip.csv /app/College_State_Zip.csv
+COPY colleges_known_for_majors_full_heuristic.csv /app/colleges_known_for_majors_full_heuristic.csv
 COPY therealdatabase /app/therealdatabase
 
 # Verify critical files exist with graceful handling

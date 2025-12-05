@@ -14,7 +14,7 @@ class RealIPEDSMajorMapping:
         self.major_mapping = {}
         self.college_major_data = {}
         self.load_mappings()
-    
+
     def load_mappings(self):
         """Load the pre-computed mappings and augment with heuristic CSV if available."""
         try:
@@ -24,7 +24,7 @@ class RealIPEDSMajorMapping:
             if os.path.exists(mapping_path):
                 with open(mapping_path, 'r') as f:
                     self.major_mapping = json.load(f)
-            
+
             # Load college major data
             college_data_path = os.path.join(base_dir, 'college_major_data.json')
             if os.path.exists(college_data_path):
@@ -67,6 +67,8 @@ class RealIPEDSMajorMapping:
                                 'percentage': 100.0,
                                 'rank': rank_idx
                             })
+            else:
+                print(f"Warning: heuristic major CSV not found at {csv_path} – using baseline IPEDS mapping only")
 
             # Rebuild major_mapping from college_major_data to purge stale associations
             rebuilt_mapping = {}
@@ -79,19 +81,19 @@ class RealIPEDSMajorMapping:
             self.major_mapping = rebuilt_mapping
 
             print(f"Loaded real major mapping: {len(self.major_mapping)} majors, {len(self.college_major_data)} colleges")
-            
+
         except Exception as e:
             print(f"Error loading real major mappings: {e}")
             self.major_mapping = {}
             self.college_major_data = {}
-    
+
     def get_colleges_for_major(self, major: str, tier: str = None, limit: int = None) -> List[str]:
         """Get colleges that offer a specific major, optionally filtered by tier"""
         if major not in self.major_mapping:
             return []
-        
+
         colleges = self.major_mapping[major]
-        
+
         # Filter by tier if specified
         if tier:
             tier_colleges = []
@@ -103,23 +105,23 @@ class RealIPEDSMajorMapping:
             colleges = tier_colleges
         else:
             colleges = [college_info['college'] for college_info in colleges]
-        
+
         # Apply limit
         if limit:
             colleges = colleges[:limit]
-        
+
         return colleges
-    
+
     def get_college_tier(self, college_name: str) -> str:
         """Get the selectivity tier for a college"""
         # Load college data to get tier information
         try:
             college_df = pd.read_csv(os.path.join(os.path.dirname(__file__), 'raw', 'real_colleges_integrated.csv'))
             college_row = college_df[college_df['name'] == college_name]
-            
+
             if len(college_row) == 0:
                 return 'moderately_selective'
-            
+
             tier = college_row.iloc[0]['selectivity_tier']
             tier_mapping = {
                 'Elite': 'elite',
@@ -130,34 +132,34 @@ class RealIPEDSMajorMapping:
             return tier_mapping.get(tier, 'moderately_selective')
         except:
             return 'moderately_selective'
-    
+
     def get_major_strength_score(self, college_name: str, major: str) -> float:
         """Get strength score for a college in a specific major based on real data"""
         if college_name not in self.college_major_data:
             return 0.0
-        
+
         college_data = self.college_major_data[college_name]
-        
+
         # Check if college_data has the expected structure
         if 'majors' not in college_data:
             return 0.0
-        
+
         # Find the major in the college's data
         for major_info in college_data['majors']:
             if major_info['name'] == major:
                 # Calculate strength score based on percentage and rank
                 percentage = major_info['percentage']
                 rank = major_info['rank']
-                
+
                 # Base score from percentage (0-100% -> 0-1.0)
                 base_score = percentage / 100.0
-                
+
                 # Rank bonus (1st major gets full score, 2nd gets 0.8x, 3rd gets 0.6x, etc.)
                 rank_multiplier = max(0.3, 1.0 - (rank - 1) * 0.2)
-                
+
                 # Final score
                 final_score = base_score * rank_multiplier
-                
+
                 # Add selectivity bonus
                 tier = self.get_college_tier(college_name)
                 selectivity_bonus = {
@@ -166,15 +168,15 @@ class RealIPEDSMajorMapping:
                     'selective': 0.1,
                     'moderately_selective': 0.05
                 }.get(tier, 0.0)
-                
+
                 return min(1.0, final_score + selectivity_bonus)
-        
+
         return 0.0
-    
+
     def get_major_relevance_info(self, college_name: str, major: str) -> Dict:
         """Get detailed major relevance information"""
         score = self.get_major_strength_score(college_name, major)
-        
+
         # Determine match level based on score
         if score >= 0.7:
             match_level = "Strong Match"
@@ -201,7 +203,7 @@ class RealIPEDSMajorMapping:
             confidence = "Low"
             is_relevant = False
             is_strong = False
-        
+
         return {
             "score": score,
             "match_level": match_level,
@@ -209,18 +211,18 @@ class RealIPEDSMajorMapping:
             "is_relevant": is_relevant,
             "is_strong": is_strong
         }
-    
+
     def get_all_majors(self) -> List[str]:
         """Get list of all majors in the system"""
         return sorted(list(self.major_mapping.keys()))
-    
+
     def get_college_majors(self, college_name: str) -> List[str]:
         """Get all majors offered by a specific college"""
         if college_name not in self.college_major_data:
             return []
-        
+
         return [major_info['name'] for major_info in self.college_major_data[college_name]['majors']]
-    
+
     def map_major_name(self, user_major: str) -> str:
         """Map user-selected major to IPEDS major name"""
         # Common mappings from user-friendly names to IPEDS names
@@ -489,7 +491,7 @@ class RealIPEDSMajorMapping:
             'Pre-Systems Technology': 'Engineering Technologies & Related Fields',
             'Pre-Operations Technology': 'Engineering Technologies & Related Fields'
         }
-        
+
         mapped = major_mappings.get(user_major)
         if mapped:
             return mapped

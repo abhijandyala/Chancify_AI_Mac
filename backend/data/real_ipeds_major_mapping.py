@@ -16,20 +16,56 @@ class RealIPEDSMajorMapping:
         self.load_mappings()
     
     def load_mappings(self):
-        """Load the pre-computed mappings"""
+        """Load the pre-computed mappings and augment with heuristic CSV if available."""
         try:
+            base_dir = os.path.dirname(__file__)
             # Load major mapping
-            mapping_path = os.path.join(os.path.dirname(__file__), 'real_major_mapping.json')
+            mapping_path = os.path.join(base_dir, 'real_major_mapping.json')
             if os.path.exists(mapping_path):
                 with open(mapping_path, 'r') as f:
                     self.major_mapping = json.load(f)
             
             # Load college major data
-            college_data_path = os.path.join(os.path.dirname(__file__), 'college_major_data.json')
+            college_data_path = os.path.join(base_dir, 'college_major_data.json')
             if os.path.exists(college_data_path):
                 with open(college_data_path, 'r') as f:
                     self.college_major_data = json.load(f)
-            
+
+            # Augment from heuristic CSV if provided (colleges_known_for_majors_full_heuristic.csv at repo root)
+            csv_path = os.path.abspath(os.path.join(base_dir, '..', '..', 'colleges_known_for_majors_full_heuristic.csv'))
+            if os.path.exists(csv_path):
+                import csv
+                with open(csv_path, newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        college_name = row.get('college_name', '').strip()
+                        majors_raw = row.get('known_for_majors', '')
+                        if not college_name or not majors_raw:
+                            continue
+                        majors_list = [m.strip() for m in majors_raw.split(';') if m.strip()]
+                        if not majors_list:
+                            continue
+
+                        # Ensure college entry exists
+                        if college_name not in self.college_major_data:
+                            self.college_major_data[college_name] = {'majors': []}
+
+                        for rank_idx, major in enumerate(majors_list, start=1):
+                            mapped_major = self.map_major_name(major)
+
+                            # Update major_mapping
+                            self.major_mapping.setdefault(mapped_major, [])
+                            if not any(c['college'] == college_name for c in self.major_mapping[mapped_major]):
+                                self.major_mapping[mapped_major].append({'college': college_name})
+
+                            # Update college_major_data
+                            if not any(m.get('name') == mapped_major for m in self.college_major_data[college_name]['majors']):
+                                self.college_major_data[college_name]['majors'].append({
+                                    'name': mapped_major,
+                                    'percentage': 100.0 / max(1, len(majors_list)),
+                                    'rank': rank_idx
+                                })
+
             print(f"Loaded real major mapping: {len(self.major_mapping)} majors, {len(self.college_major_data)} colleges")
             
         except Exception as e:

@@ -36,14 +36,14 @@ function SplineBackground() {
         strategy="lazyOnload"
         crossOrigin="anonymous"
       />
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
         <spline-viewer
           url={SPLINE_SCENE}
           style={{
             width: '100%',
             height: '100%',
             opacity: 0.9,
-            filter: 'saturate(0.9)',
+            filter: 'saturate(1)',
           }}
         />
       </div>
@@ -69,7 +69,10 @@ export default function ROXLandingPage() {
   return (
     <main className="bg-background text-foreground rox-bg-pattern relative">
       <SplineBackground />
-      <SophisticatedBackground />
+      <div className="pointer-events-none absolute inset-0 z-10">
+        <SophisticatedBackground />
+      </div>
+      <div className="relative z-20">
       <ROXNav />
       <ROXHero />
       <ROXClientMarquee />
@@ -92,6 +95,7 @@ export default function ROXLandingPage() {
         isOpen={showCookiesModal}
         onClose={() => setShowCookiesModal(false)}
       />
+      </div>
     </main>
   )
 }

@@ -1,5 +1,5 @@
 {
-  "training_date": "2025-12-04T18:13:34.543117",
+  "training_date": "2025-12-05T18:24:01.041295",
   "version": "9.0_ultimate_combined",
   "data_sources": [
     "IPEDS 2023 (1,621 colleges)",
@@ -22,7 +22,6 @@
     "awards_publications_score",
     "portfolio_audition_score",
     "legacy_score",
-    "conduct_record_score",
     "hs_reputation_score",
     "gpa_unweighted",
     "gpa_weighted",
@@ -40,8 +39,9 @@
     "hours_per_week",
     "awards_count",
     "national_awards",
+    "first_gen",
+    "urm",
     "legacy",
-    "recruited_athlete",
     "sat_median",
     "act_median",
     "test_policy_numeric",
@@ -54,9 +54,9 @@
     "composite_vs_acceptance",
     "selectivity_match",
     "test_advantage",
+    "geographic_match",
     "legacy_boost",
     "first_gen_boost",
-    "athlete_boost",
     "academic_strength",
     "holistic_strength"
   ],
@@ -70,36 +70,51 @@
   ],
   "metrics": {
     "LR": {
-      "accuracy": 0.744692144373673,
-      "roc_auc": 0.790213973921709,
-      "brier": 0.17506593959372724
+      "accuracy": 0.7436305732484076,
+      "roc_auc": 0.7907175038949008,
+      "brier": 0.17529736463025922
     },
     "RF": {
-      "accuracy": 0.7425690021231423,
-      "roc_auc": 0.804206960760921,
-      "brier": 0.17565299910028895
+      "accuracy": 0.744692144373673,
+      "roc_auc": 0.8045145760523249,
+      "brier": 0.17549212546611742
     },
     "XGB": {
-      "accuracy": 0.7367303609341825,
-      "roc_auc": 0.803267739928231,
-      "brier": 0.17825392933747278
+      "accuracy": 0.7351380042462845,
+      "roc_auc": 0.8023905100097781,
+      "brier": 0.178170118368
     },
     "LGBM": {
-      "accuracy": 0.7356687898089171,
-      "roc_auc": 0.8031250438614961,
-      "brier": 0.17840381112105105
+      "accuracy": 0.7399150743099787,
+      "roc_auc": 0.8004851666268988,
+      "brier": 0.17909569957457455
     },
     "GB": {
-      "accuracy": 0.7457537154989384,
-      "roc_auc": 0.8057380193785937,
-      "brier": 0.17396768103769866
+      "accuracy": 0.7468152866242038,
+      "roc_auc": 0.8053438507352357,
+      "brier": 0.1743874423864649
     },
     "Ensemble": {
-      "accuracy": 0.7452229299363057,
-      "roc_auc": 0.8060889113459747,
-      "brier": 0.1737804481375121
+      "accuracy": 0.7462845010615711,
+      "roc_auc": 0.8067427400451949,
+      "brier": 0.1738955072763774
+    },
+    "Calibrated": {
+      "accuracy": 0.7510615711252654,
+      "roc_auc": 0.8114277326296779,
+      "brier": 0.16970995591532242
     }
   },
   "best_model": "Ensemble",
-  "best_roc_auc": 0.8060889113459747
+  "best_model_key": "ensemble",
+  "best_roc_auc": 0.8067427400451949,
+  "calibration": {
+    "base_model": "ensemble",
+    "method": "isotonic",
+    "calibration_set_size": 1884,
+    "raw_brier": 0.1738955072763774,
+    "calibrated_brier": 0.16970995591532242,
+    "raw_auc": 0.8067427400451949,
+    "calibrated_auc": 0.8114277326296779
+  }
 }

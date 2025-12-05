@@ -1,0 +1,9 @@
+{
+  "base_model": "ensemble",
+  "method": "isotonic",
+  "calibration_set_size": 1884,
+  "raw_brier": 0.1738955072763774,
+  "calibrated_brier": 0.16970995591532242,
+  "raw_auc": 0.8067427400451949,
+  "calibrated_auc": 0.8114277326296779
+}

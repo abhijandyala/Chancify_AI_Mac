@@ -162,7 +162,13 @@ class RealCollegeSuggestions:
             except Exception:
                 return False
 
-        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_balanced(c)]
+        strict_filtered = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_balanced(c)]
+        # If too few, relax size and fit slightly
+        if len(strict_filtered) >= 9:
+            college_data = strict_filtered
+        else:
+            relaxed = [c for c in college_data if c['major_fit_score'] >= 0.2 and (size_ok_balanced(c) or c.get('student_body_size', 0) > 0)]
+            college_data = relaxed if relaxed else college_data
 
         # Sort by major fit score first, then by probability
         college_data.sort(key=lambda x: (x['major_fit_score'], x['probability']), reverse=True)
@@ -277,7 +283,12 @@ class RealCollegeSuggestions:
             except Exception:
                 return False
 
-        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_fallback(c)]
+        strict_filtered = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_fallback(c)]
+        if len(strict_filtered) >= 9:
+            college_data = strict_filtered
+        else:
+            relaxed = [c for c in college_data if c['major_fit_score'] >= 0.2 and (size_ok_fallback(c) or c.get('student_body_size', 0) > 0)]
+            college_data = relaxed if relaxed else college_data
 
         # Sort by major fit score
         college_data.sort(key=lambda x: x['major_fit_score'], reverse=True)

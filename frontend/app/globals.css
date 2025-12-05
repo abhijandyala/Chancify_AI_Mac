@@ -526,16 +526,15 @@
 /* College Selection Glow Effects - Proper Implementation */
 .college-card-wrapper {
   position: relative;
-  display: inline-block;
+  display: block;
+  width: 100%;
+  overflow: visible;
 }
 
 .college-card-glow {
   position: absolute;
-  top: -8px;
-  left: -8px;
-  right: -8px;
-  bottom: -8px;
-  border-radius: 20px;
+  inset: -6px;
+  border-radius: 16px;
   pointer-events: none;
   z-index: 0;
   opacity: 0;

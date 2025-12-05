@@ -427,13 +427,13 @@ export default function CollegeSelectionPage() {
                  searchResults.map((college) => (
                    <motion.div
                      key={college.college_id}
-                     whileHover={{ scale: 1.02 }}
-                     whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                      onClick={() => handleCollegeSelect(college.college_id)}
                      className="college-card-wrapper"
                    >
                      <div className={`college-card-glow search ${selectedColleges.includes(college.college_id) ? 'active' : ''}`}></div>
-                     <div className={`flex items-center justify-between p-3 border rounded-lg transition-all duration-300 cursor-pointer ${
+                    <div className={`relative z-10 flex items-center justify-between p-2.5 md:p-3 border rounded-lg transition-all duration-300 cursor-pointer ${
                        selectedColleges.includes(college.college_id)
                          ? 'border-yellow-400/50'
                          : 'border-gray-600 hover:border-yellow-400/50'

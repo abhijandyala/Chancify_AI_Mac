@@ -12,7 +12,7 @@ class ImprovementArea:
     area: str
     current: str
     target: str
-    impact: int
+    impact: float
     priority: str  # 'high', 'medium', 'low'
     description: str
     actionable_steps: List[str]
@@ -271,16 +271,19 @@ class ImprovementAnalysisService:
             # Sort by priority and impact
             improvements.sort(key=lambda x: (x.priority == 'high', x.impact), reverse=True)
 
+            # Normalize impacts into realistic percentage uplifts before returning
+            improvements = self._normalize_impacts(improvements)
+
             # Return improvements (analysis methods should ALWAYS return at least maintenance advice)
             if len(improvements) == 0:
                 logger.error("NO improvements generated - this should never happen!")
-                return self._get_default_improvements()
+                return self._normalize_impacts(self._get_default_improvements())
 
             return improvements[:20]  # Return up to 20 improvements for comprehensive analysis
 
         except Exception as e:
             logger.error(f"Error analyzing user profile: {e}")
-            return self._get_default_improvements()
+            return self._normalize_impacts(self._get_default_improvements())
 
     def _analyze_academic_performance(self, profile: Dict[str, Any], college_data: Dict[str, Any]) -> List[ImprovementArea]:
         """Analyze GPA and academic performance with enhanced calculations"""
@@ -1165,8 +1168,25 @@ class ImprovementAnalysisService:
         if not improvements:
             return 0
 
-        # Cap the combined impact at 35% for realistic expectations
+        # Cap the combined impact at 7% for realistic expectations (matches frontend caps)
         total_impact = sum(imp.impact for imp in improvements)
-        return min(total_impact, 35)
+        return min(total_impact, 7.0)
+
+    def _normalize_impacts(self, improvements: List[ImprovementArea]) -> List[ImprovementArea]:
+        """
+        Convert legacy integer impacts into realistic percentage uplifts.
+        - Monotone positive, capped per item.
+        - Priority scales the uplift modestly.
+        """
+        priority_multiplier = {"high": 1.2, "medium": 1.0, "low": 0.7}
+        normalized = []
+        for imp in improvements:
+            raw = float(imp.impact or 0)
+            mult = priority_multiplier.get(imp.priority, 1.0)
+            scaled = raw * 0.12 * mult  # e.g., raw 10 -> 1.2%, raw 2 -> 0.24%
+            scaled = max(0.05, min(scaled, 3.0))  # floor/ceiling to avoid zeros and outliers
+            imp.impact = round(scaled, 4)
+            normalized.append(imp)
+        return normalized
 
 improvement_analysis_service = ImprovementAnalysisService()

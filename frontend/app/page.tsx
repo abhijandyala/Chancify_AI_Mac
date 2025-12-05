@@ -33,7 +33,8 @@ function SplineBackground() {
       <Script
         src="https://unpkg.com/@splinetool/viewer@1.12.6/build/spline-viewer.js"
         type="module"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
+        crossOrigin="anonymous"
       />
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <spline-viewer
@@ -78,18 +79,18 @@ export default function ROXLandingPage() {
       <ROXTestimonialSection />
       <ROXEnterprise />
       <ROXMegaFooter />
-      
+
       {/* Cookie Banner */}
-      <CookieBanner 
+      <CookieBanner
         onAccept={handleCookieAccept}
         onDecline={handleCookieDecline}
         onShowPolicy={handleShowCookiesPolicy}
       />
-      
+
       {/* Cookies Policy Modal */}
-      <CookiesPolicyModal 
-        isOpen={showCookiesModal} 
-        onClose={() => setShowCookiesModal(false)} 
+      <CookiesPolicyModal
+        isOpen={showCookiesModal}
+        onClose={() => setShowCookiesModal(false)}
       />
     </main>
   )

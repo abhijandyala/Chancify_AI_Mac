@@ -155,14 +155,14 @@ class RealCollegeSuggestions:
             college_data = [c for c in college_data if not is_cosmetology_school(c['name'])]
 
         # Quality gate: require non-zero fit and reasonable size
-        def size_ok(c):
+        def size_ok_balanced(c):
             size = c.get('student_body_size') or 0
             try:
                 return float(size) >= 1000.0
             except Exception:
                 return False
 
-        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok(c)]
+        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_balanced(c)]
 
         # Sort by major fit score first, then by probability
         college_data.sort(key=lambda x: (x['major_fit_score'], x['probability']), reverse=True)
@@ -270,14 +270,14 @@ class RealCollegeSuggestions:
             college_data = [c for c in college_data if not is_cosmetology_school(c['name'])]
 
         # Quality gate: require non-zero fit and reasonable size
-        def size_ok(c):
+        def size_ok_fallback(c):
             size = c.get('student_body_size') or 0
             try:
                 return float(size) >= 1000.0
             except Exception:
                 return False
 
-        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok(c)]
+        college_data = [c for c in college_data if c['major_fit_score'] >= 0.35 and size_ok_fallback(c)]
 
         # Sort by major fit score
         college_data.sort(key=lambda x: x['major_fit_score'], reverse=True)

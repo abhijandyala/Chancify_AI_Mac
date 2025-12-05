@@ -7,15 +7,15 @@ from .utils import clean_lines, normalize_whitespace, safe_json_array, strip_bul
 
 
 GPA_PATTERN = re.compile(
-    r"(?:gpa[^\\d]{0,10})?(?P<uw>\\d\\.\\d{1,2})\\s*(?:uw|unweighted)?\\s*(?:[/,]|and)?\\s*(?P<w>\\d\\.\\d{1,2})?\\s*(?:w|weighted)?",
+    r"(?:gpa[^\d]{0,10})?(?P<uw>\d\.\d{1,2})\s*(?:uw|unweighted)?\s*(?:[/,]|and)?\s*(?P<w>\d\.\d{1,2})?\s*(?:w|weighted)?",
     re.IGNORECASE,
 )
-SAT_PATTERN = re.compile(r"sat[^\\d]{0,6}(\\d{3,4})", re.IGNORECASE)
-ACT_PATTERN = re.compile(r"act[^\\d]{0,6}(\\d{1,2})", re.IGNORECASE)
-AP_PATTERN = re.compile(r"\\bap[^\\d]{0,4}(\\d{1,2})", re.IGNORECASE)
-HONORS_PATTERN = re.compile(r"honors[^\\d]{0,4}(\\d{1,2})", re.IGNORECASE)
-RANK_FRACTION = re.compile(r"rank[^\\d]{0,6}(\\d{1,4})\\s*/\\s*(\\d{1,5})", re.IGNORECASE)
-RANK_TOP = re.compile(r"top\\s*(\\d{1,2})\\s*%", re.IGNORECASE)
+SAT_PATTERN = re.compile(r"sat[^\d]{0,6}(\d{3,4})", re.IGNORECASE)
+ACT_PATTERN = re.compile(r"act[^\d]{0,6}(\d{1,2})", re.IGNORECASE)
+AP_PATTERN = re.compile(r"\bap[^\d]{0,4}(\d{1,2})", re.IGNORECASE)
+HONORS_PATTERN = re.compile(r"honors[^\d]{0,4}(\d{1,2})", re.IGNORECASE)
+RANK_FRACTION = re.compile(r"rank[^\d]{0,6}(\d{1,4})\s*/\s*(\d{1,5})", re.IGNORECASE)
+RANK_TOP = re.compile(r"top\s*(\d{1,2})\s*%", re.IGNORECASE)
 
 
 def _parse_gpa(text: str) -> tuple[Optional[float], Optional[float]]:
@@ -87,7 +87,7 @@ def _extract_section_lines(body_lower: str, body: str) -> List[str]:
     # Fallback: bullet-ish lines
     bullets = []
     for line in body.splitlines():
-        if re.match(r"\\s*[-•*\\d]", line) and len(line.strip()) > 4:
+        if re.match(r"\s*[-•*\d]", line) and len(line.strip()) > 4:
             bullets.append(strip_bullet_prefix(line))
     return bullets
 
@@ -95,9 +95,9 @@ def _extract_section_lines(body_lower: str, body: str) -> List[str]:
 def _extract_decisions(text: str) -> List[tuple[str, int]]:
     decisions: List[tuple[str, int]] = []
     patterns = [
-        (r"(accepted|admitted)\\s*[:\\-]\\s*(.+)", 1),
-        (r"(rejected|denied)\\s*[:\\-]\\s*(.+)", 0),
-        (r"(acceptances)\\s*[:\\-]\\s*(.+)", 1),
+        (r"(accepted|admitted)\s*[:\-]\s*(.+)", 1),
+        (r"(rejected|denied)\s*[:\-]\s*(.+)", 0),
+        (r"(acceptances)\s*[:\-]\s*(.+)", 1),
     ]
     lines = text.splitlines()
 
@@ -110,7 +110,7 @@ def _extract_decisions(text: str) -> List[tuple[str, int]]:
                 tail = m.group(2)
                 parts = re.split(r"[;,]", tail)
                 if len(parts) == 1:
-                    parts = re.split(r"\\band\\b", tail, flags=re.IGNORECASE)
+                    parts = re.split(r"\band\b", tail, flags=re.IGNORECASE)
                 for college in parts:
                     c = college.strip(" ,.;")
                     if c:

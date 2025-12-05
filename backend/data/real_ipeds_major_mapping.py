@@ -59,10 +59,15 @@ class RealIPEDSMajorMapping:
                                 self.major_mapping[mapped_major].append({'college': college_name})
 
                             # Update college_major_data
-                            if not any(m.get('name') == mapped_major for m in self.college_major_data[college_name]['majors']):
+                            existing = next((m for m in self.college_major_data[college_name]['majors'] if m.get('name') == mapped_major), None)
+                            if existing:
+                                existing['percentage'] = 100.0
+                                existing['rank'] = rank_idx
+                            else:
                                 self.college_major_data[college_name]['majors'].append({
                                     'name': mapped_major,
-                                    'percentage': 100.0 / max(1, len(majors_list)),
+                                    # Treat heuristic list as strong signals: full percentage, rank orders strength
+                                    'percentage': 100.0,
                                     'rank': rank_idx
                                 })
 

@@ -140,6 +140,21 @@ class RealCollegeSuggestions:
         
         # Sort by major fit score first, then by probability
         college_data.sort(key=lambda x: (x['major_fit_score'], x['probability']), reverse=True)
+
+        # Filter out weak matches; keep fallbacks if needed
+        def size_ok(c):
+            size = c.get('student_body_size') or 0
+            try:
+                return float(size) >= 1000.0
+            except Exception:
+                return False
+
+        strong_colleges = [c for c in college_data if c['major_fit_score'] >= 0.5 and size_ok(c)]
+        medium_colleges = [c for c in college_data if c['major_fit_score'] >= 0.4 and size_ok(c)]
+        if len(strong_colleges) >= 9:
+            college_data = strong_colleges
+        elif len(medium_colleges) >= 9:
+            college_data = medium_colleges
         
         # Categorize based on calculated probabilities
         safety_colleges = []

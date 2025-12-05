@@ -89,7 +89,7 @@ export default function Loader({ onComplete, duration, message = 'Calculating yo
         .spinner span {
           position: absolute;
           top: 50%;
-          left: var(--left);
+          left: 50%;
           width: 28px;
           height: 6px;
           border-radius: 5px;
@@ -115,17 +115,17 @@ export default function Loader({ onComplete, duration, message = 'Calculating yo
             0 0 10px rgba(212, 175, 55, 0.6),
             inset 0 0 6px rgba(255, 240, 190, 0.3),
             0 0 25px rgba(212, 175, 55, 0.4);
-          transform: rotateY(18deg);
+          transform: translateX(var(--offset, 0px)) rotateY(18deg);
         }
 
-        .spinner span:nth-child(1) { --left: 64px; animation-delay: 0.125s; }
-        .spinner span:nth-child(2) { --left: 56px; animation-delay: 0.3s; }
-        .spinner span:nth-child(3) { left: 48px; animation-delay: 0.425s; }
-        .spinner span:nth-child(4) { left: 40px; animation-delay: 0.54s; }
-        .spinner span:nth-child(5) { left: 32px; animation-delay: 0.665s; }
-        .spinner span:nth-child(6) { left: 24px; animation-delay: 0.79s; }
-        .spinner span:nth-child(7) { left: 16px; animation-delay: 0.915s; }
-        .spinner span:nth-child(8) { left: 8px; }
+        .spinner span:nth-child(1) { --offset: -56px; animation-delay: 0.125s; }
+        .spinner span:nth-child(2) { --offset: -40px; animation-delay: 0.3s; }
+        .spinner span:nth-child(3) { --offset: -24px; animation-delay: 0.425s; }
+        .spinner span:nth-child(4) { --offset: -8px;  animation-delay: 0.54s; }
+        .spinner span:nth-child(5) { --offset: 8px;   animation-delay: 0.665s; }
+        .spinner span:nth-child(6) { --offset: 24px;  animation-delay: 0.79s; }
+        .spinner span:nth-child(7) { --offset: 40px;  animation-delay: 0.915s; }
+        .spinner span:nth-child(8) { --offset: 56px; }
 
         @keyframes dominos {
           50% { opacity: 0.7; }

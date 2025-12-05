@@ -537,13 +537,20 @@
   bottom: -8px;
   border-radius: 20px;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease, filter 0.3s ease;
 }
 
 .college-card-glow.active {
   opacity: 1;
+}
+
+/* Show glow on hover as well as when active */
+.college-card-wrapper:hover .college-card-glow {
+  opacity: 1;
+  transform: scale(1.01);
+  filter: blur(0.5px);
 }
 
 /* Safety Schools - Green Glow */

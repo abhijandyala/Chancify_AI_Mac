@@ -45,6 +45,50 @@ export interface PredictionRequest {
   misc?: string[];
 }
 
+/**
+ * Discover colleges (Scorecard-backed)
+ */
+export async function getDiscoverColleges(params: {
+  q?: string;
+  state?: string;
+  selectivity?: string;
+  size?: string;
+  max_net_price?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
+}): Promise<DiscoverListResponse> {
+  const API_BASE_URL = getAPI_BASE_URL();
+  const searchParams = new URLSearchParams();
+  if (params.q) searchParams.set('q', params.q);
+  if (params.state) searchParams.set('state', params.state);
+  if (params.selectivity) searchParams.set('selectivity', params.selectivity);
+  if (params.size) searchParams.set('size', params.size);
+  if (params.max_net_price !== undefined) searchParams.set('max_net_price', String(params.max_net_price));
+  if (params.sort) searchParams.set('sort', params.sort);
+  if (params.order) searchParams.set('order', params.order);
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.page_size) searchParams.set('page_size', String(params.page_size));
+
+  const url = `${API_BASE_URL}/api/colleges?${searchParams.toString()}`;
+  const resp = await fetch(url, { headers: getHeaders() });
+  if (!resp.ok) {
+    throw new Error(`Discover list failed: ${resp.status}`);
+  }
+  return resp.json();
+}
+
+export async function getDiscoverCollegeDetail(id: number): Promise<DiscoverDetailResponse> {
+  const API_BASE_URL = getAPI_BASE_URL();
+  const url = `${API_BASE_URL}/api/colleges/${id}`;
+  const resp = await fetch(url, { headers: getHeaders() });
+  if (!resp.ok) {
+    throw new Error(`Discover detail failed: ${resp.status}`);
+  }
+  return resp.json();
+}
+
 export interface CollegeSuggestionsRequest {
   gpa_unweighted: string;
   gpa_weighted: string;
@@ -138,6 +182,56 @@ export interface CollegeSuggestionsResponse {
   prediction_method: string;
   error?: string;
   message?: string;
+}
+
+// Discover (Scorecard-backed)
+export interface DiscoverCollegeListItem {
+  id: number;
+  name: string;
+  city: string;
+  state: string;
+  ownership: string | null;
+  student_size: number | null;
+  admission_rate: number | null;
+  net_price: number | null;
+  tuition_in_state: number | null;
+  tuition_out_of_state: number | null;
+  completion_rate: number | null;
+  earnings_10yr: number | null;
+  selectivity_label: string;
+  size_label: string;
+  image_url: string | null;
+  has_image: boolean;
+}
+
+export interface DiscoverCollegeDetail extends DiscoverCollegeListItem {
+  zip: string | null;
+  region_id: number | null;
+  school_url: string | null;
+  predominant_degree: number | null;
+  locale: number | null;
+  sat_avg: number | null;
+  sat_math: number | null;
+  sat_ebrw: number | null;
+  act_mid: number | null;
+  cost_attendance: number | null;
+  repayment_3yr: number | null;
+}
+
+export interface DiscoverListResponse {
+  success: boolean;
+  data: DiscoverCollegeListItem[];
+  meta: {
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+  };
+}
+
+export interface DiscoverDetailResponse {
+  success: boolean;
+  data: DiscoverCollegeDetail;
 }
 
 /**

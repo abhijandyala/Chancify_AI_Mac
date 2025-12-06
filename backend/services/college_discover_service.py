@@ -167,11 +167,15 @@ def query_colleges(
     page: int,
     page_size: int,
 ) -> Tuple[List[Dict[str, Any]], int]:
-    base = db.query(ScorecardCollege)
-    base = apply_filters(base, q, state, selectivity, size, max_net_price)
-    total = base.count()
-    base = apply_sort(base, sort, order)
-    items = base.offset((page - 1) * page_size).limit(page_size).all()
+    try:
+        base = db.query(ScorecardCollege)
+        base = apply_filters(base, q, state, selectivity, size, max_net_price)
+        total = base.count()
+        base = apply_sort(base, sort, order)
+        items = base.offset((page - 1) * page_size).limit(page_size).all()
+    except Exception as e:
+        logger.error("Error querying scorecard_colleges (table may not exist): %s", e)
+        return [], 0
 
     results = []
     for c in items:
@@ -200,39 +204,43 @@ def query_colleges(
 
 
 def get_college_detail(db: Session, scorecard_id: int) -> Optional[Dict[str, Any]]:
-    c = db.get(ScorecardCollege, scorecard_id)
-    if not c:
+    try:
+        c = db.get(ScorecardCollege, scorecard_id)
+        if not c:
+            return None
+        img = get_or_create_college_image(db, c)
+        return {
+            "id": c.scorecard_id,
+            "name": c.name,
+            "city": c.city,
+            "state": c.state,
+            "zip": c.zip,
+            "region_id": c.region_id,
+            "school_url": c.school_url,
+            "ownership": c.ownership,
+            "predominant_degree": c.predominant_degree,
+            "locale": c.locale,
+            "student_size": c.student_size,
+            "admission_rate": c.admission_rate,
+            "sat_avg": c.sat_avg,
+            "sat_math": c.sat_math,
+            "sat_ebrw": c.sat_ebrw,
+            "act_mid": c.act_mid,
+            "cost_attendance": c.cost_attendance,
+            "tuition_in_state": c.tuition_in_state,
+            "tuition_out_of_state": c.tuition_out_of_state,
+            "net_price": c.net_price,
+            "completion_rate": c.completion_rate,
+            "earnings_10yr": c.earnings_10yr,
+            "repayment_3yr": c.repayment_3yr,
+            "selectivity_label": selectivity_label(c.selectivity_bucket),
+            "size_label": size_label(c.size_bucket),
+            "image_url": img.image_url if img and img.has_image else None,
+            "has_image": bool(img and img.has_image),
+        }
+    except Exception as e:
+        logger.error("Error fetching college detail (table may not exist): %s", e)
         return None
-    img = get_or_create_college_image(db, c)
-    return {
-        "id": c.scorecard_id,
-        "name": c.name,
-        "city": c.city,
-        "state": c.state,
-        "zip": c.zip,
-        "region_id": c.region_id,
-        "school_url": c.school_url,
-        "ownership": c.ownership,
-        "predominant_degree": c.predominant_degree,
-        "locale": c.locale,
-        "student_size": c.student_size,
-        "admission_rate": c.admission_rate,
-        "sat_avg": c.sat_avg,
-        "sat_math": c.sat_math,
-        "sat_ebrw": c.sat_ebrw,
-        "act_mid": c.act_mid,
-        "cost_attendance": c.cost_attendance,
-        "tuition_in_state": c.tuition_in_state,
-        "tuition_out_of_state": c.tuition_out_of_state,
-        "net_price": c.net_price,
-        "completion_rate": c.completion_rate,
-        "earnings_10yr": c.earnings_10yr,
-        "repayment_3yr": c.repayment_3yr,
-        "selectivity_label": selectivity_label(c.selectivity_bucket),
-        "size_label": size_label(c.size_bucket),
-        "image_url": img.image_url if img and img.has_image else None,
-        "has_image": bool(img and img.has_image),
-    }
 
 
 def fetch_photo_bytes(photo_reference: str, maxwidth: int = 1200) -> Tuple[bytes, str]:

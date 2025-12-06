@@ -11,6 +11,9 @@ Chancify AI helps students understand their chances of admission to colleges bas
 - Special considerations (athletics, legacy, demographics)
 - Application strategy and timing
 
+### Deployment note
+- Frontend and backend are aligned on main; set `NEXT_PUBLIC_API_URL`/`BACKEND_URL` to the active backend (Railway) before deploys.
+
 ## Project Structure
 
 ```

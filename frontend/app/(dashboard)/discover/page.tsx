@@ -292,3 +292,7 @@ export default function DiscoverPage() {
         </div>
       )}
 
+      {detail && <DetailModal data={detail} onClose={() => setDetail(null)} />}
+    </div>
+  )
+}

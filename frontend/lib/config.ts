@@ -43,13 +43,30 @@ function resolveRuntimeOverride(): string | undefined {
   }
 }
 
+function sanitizeBaseUrl(candidate?: string): string | undefined {
+  if (!candidate) return undefined
+  try {
+    const u = new URL(candidate)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined
+    u.pathname = u.pathname.replace(/\/+$/, '')
+    return u.toString()
+  } catch {
+    return undefined
+  }
+}
+
 export function getApiBaseUrl(): string {
   // Priority order:
   // 1. Runtime override (window.__CHANCIFY_API_URL__ or localStorage)
   // 2. Environment variable (NEXT_PUBLIC_API_URL) - SET THIS IN RAILWAY!
   // 3. Railway URL (production)
   // 4. Localhost (local development only)
-  return resolveRuntimeOverride() || resolveEnvApiUrl() || RAILWAY_API_URL || DEFAULT_API_URL
+  const runtime = sanitizeBaseUrl(resolveRuntimeOverride())
+  const env = sanitizeBaseUrl(resolveEnvApiUrl())
+  const primary = sanitizeBaseUrl(RAILWAY_API_URL)
+  const fallback = sanitizeBaseUrl(DEFAULT_API_URL)
+
+  return runtime || env || primary || fallback || DEFAULT_API_URL
 }
 
 export function withNgrokHeaders(

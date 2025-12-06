@@ -151,7 +151,11 @@ export async function getAdmissionProbability(
     if (DEBUG_PREDICT) {
       console.log('[predict] request', { profile })
     }
-    const response = await fetch(`${API_BASE_URL}/api/predict/frontend`, {
+    const url = `${API_BASE_URL}/api/predict/frontend`
+    if (DEBUG_PREDICT) {
+      console.log('[predict] url', url)
+    }
+    const response = await fetch(url, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(profile),

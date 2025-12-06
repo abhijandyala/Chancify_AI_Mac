@@ -8,6 +8,8 @@ on:
 jobs:
   monitor-and-fix:
     runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
     steps:
     - name: Checkout code
@@ -23,14 +25,6 @@ jobs:
     - name: Install Railway CLI
       run: |
         npm install -g @railway/cli
-
-    - name: Setup Railway authentication
-      run: |
-        if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
-          echo "::error::RAILWAY_TOKEN secret is not set in repository settings"
-          exit 1
-        fi
-        railway login --apiKey "${{ secrets.RAILWAY_TOKEN }}"
 
     - name: Install frontend dependencies
       run: |

@@ -6,7 +6,7 @@ FastAPI application for college admissions probability calculations
 import os
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, HTTPException, status
 from starlette.responses import Response
 
@@ -43,6 +43,14 @@ try:
 except ImportError as e:
     logger.error(f"Failed to import database: {e}")
     def create_tables(): pass
+
+# DB session helper
+try:
+    from database.connection import get_db
+except Exception as e:
+    logger.warning(f"Failed to import get_db: {e}")
+    def get_db():
+        yield None
 
 # Import data modules with error handling - these are optional
 real_college_suggestions = None
@@ -103,6 +111,20 @@ try:
     logger.info("✓ improvement_analysis_service imported")
 except Exception as e:
     logger.warning(f"Failed to import improvement_analysis_service: {e}")
+
+# Discover service (Scorecard + images)
+try:
+    from services.college_discover_service import (
+        query_colleges,
+        get_college_detail,
+        fetch_photo_bytes,
+    )
+    logger.info("✓ college_discover_service imported")
+except Exception as e:
+    logger.warning(f"Failed to import college_discover_service: {e}")
+    query_colleges = None
+    get_college_detail = None
+    fetch_photo_bytes = None
 
 # Simple in-memory cache for college suggestions
 suggestion_cache = {}
@@ -459,6 +481,92 @@ async def health_check():
         "environment": ENV,
         "port": os.environ.get("PORT", "8000")
     }
+
+
+# ---------------------------------------------------------------------------
+# Discover (Scorecard-backed) endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/colleges")
+def list_colleges(
+    q: Optional[str] = None,
+    state: Optional[str] = None,
+    selectivity: Optional[str] = None,
+    size: Optional[str] = None,
+    max_net_price: Optional[int] = None,
+    sort: Optional[str] = "name",
+    order: str = "asc",
+    page: int = 1,
+    page_size: int = 20,
+):
+    if query_colleges is None:
+        raise HTTPException(status_code=503, detail="Discover service unavailable")
+    db_gen = get_db()
+    db = next(db_gen)
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        page = max(page, 1)
+        page_size = min(max(page_size, 1), 50)
+        data, total = query_colleges(
+            db=db,
+            q=q,
+            state=state,
+            selectivity=selectivity,
+            size=size,
+            max_net_price=max_net_price,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+        )
+        return {
+            "success": True,
+            "data": data,
+            "meta": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size if page_size else 0,
+            },
+        }
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+
+@app.get("/api/colleges/{scorecard_id}")
+def college_detail(scorecard_id: int):
+    if get_college_detail is None:
+        raise HTTPException(status_code=503, detail="Discover service unavailable")
+    db_gen = get_db()
+    db = next(db_gen)
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    try:
+        result = get_college_detail(db, scorecard_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="College not found")
+        return {"success": True, "data": result}
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+
+@app.get("/api/colleges/image/{photo_reference}")
+def college_image(photo_reference: str, maxwidth: int = 1200):
+    if fetch_photo_bytes is None:
+        raise HTTPException(status_code=503, detail="Image service unavailable")
+    try:
+        content, content_type = fetch_photo_bytes(photo_reference, maxwidth=maxwidth)
+        return Response(content=content, media_type=content_type)
+    except Exception as e:
+        logger.warning(f"Image fetch failed: {e}")
+        raise HTTPException(status_code=404, detail="Image not found")
 
 @app.get("/api/search/colleges")
 async def search_colleges(q: str = "", limit: int = 20):

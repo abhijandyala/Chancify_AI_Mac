@@ -52,6 +52,10 @@ class Settings(_BaseSettings):
     # Loaded from environment variable (.env file) via Pydantic - never commit API keys to git
     openai_api_key: str = ""
 
+    # External data/API keys
+    college_scorecard_api_key: str = ""
+    google_maps_api_key: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

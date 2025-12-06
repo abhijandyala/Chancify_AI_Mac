@@ -36,16 +36,19 @@ function SplineBackground() {
         strategy="lazyOnload"
         crossOrigin="anonymous"
       />
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        <spline-viewer
-          url={SPLINE_SCENE}
-          style={{
-            width: '100%',
-            height: '100%',
-            opacity: 0.9,
-            filter: 'saturate(1)',
-          }}
-        />
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" style={{ minHeight: '100vh' }}>
+        <div suppressHydrationWarning>
+          <spline-viewer
+            url={SPLINE_SCENE}
+            style={{
+              width: '100%',
+              height: '100%',
+              minHeight: '100vh',
+              opacity: 0.95,
+              filter: 'saturate(1.05) brightness(1.05)',
+            }}
+          />
+        </div>
       </div>
     </>
   )
@@ -67,12 +70,12 @@ export default function ROXLandingPage() {
   }
 
   return (
-    <main className="bg-background text-foreground rox-bg-pattern relative">
+    <main className="bg-background text-foreground rox-bg-pattern relative min-h-screen">
       <SplineBackground />
       <div className="pointer-events-none absolute inset-0 z-10">
         <SophisticatedBackground />
       </div>
-      <div className="relative z-20">
+      <div className="relative z-20 min-h-screen">
       <ROXNav />
       <ROXHero />
       <ROXClientMarquee />

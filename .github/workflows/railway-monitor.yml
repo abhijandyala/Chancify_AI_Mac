@@ -8,46 +8,45 @@ on:
 jobs:
   monitor-and-fix:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        
+
     - name: Install Railway CLI
       run: |
         npm install -g @railway/cli
-        
+
     - name: Setup Railway authentication
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
-        if [ -z "$RAILWAY_TOKEN" ]; then
-          echo "RAILWAY_TOKEN is not set"; exit 1;
+        if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+          echo "::error::RAILWAY_TOKEN secret is not set in repository settings"
+          exit 1
         fi
-        railway login --apiKey "$RAILWAY_TOKEN"
-        
+        railway login --apiKey "${{ secrets.RAILWAY_TOKEN }}"
+
     - name: Install frontend dependencies
       run: |
         cd frontend
         npm ci
-        
+
     - name: Run Railway Auto-Fix Monitor
       run: |
         chmod +x scripts/railway_auto_fix.sh
         ./scripts/railway_auto_fix.sh
-        
+
     - name: Check deployment status
       run: |
         echo "Checking final deployment status..."
         curl -f https://chancifyai.up.railway.app || echo "Deployment check failed"
-        
+
     - name: Notify on failure
       if: failure()
       run: |

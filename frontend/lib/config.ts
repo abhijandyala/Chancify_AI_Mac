@@ -56,8 +56,10 @@ function sanitizeBaseUrl(candidate?: string): string | undefined {
   try {
     const u = new URL(candidate);
     if (u.protocol !== "http:" && u.protocol !== "https:") return undefined;
-    u.pathname = u.pathname.replace(/\/+$/, "");
-    return u.toString();
+    // Use origin (no trailing slash) + cleaned pathname
+    const cleanPath = u.pathname.replace(/\/+$/, "");
+    // u.origin never has trailing slash; append cleaned path only if non-empty
+    return cleanPath ? `${u.origin}${cleanPath}` : u.origin;
   } catch {
     return undefined;
   }

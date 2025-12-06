@@ -6,8 +6,8 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
-    Column, String, Integer, Boolean, DateTime, Text, 
-    DECIMAL, ForeignKey, JSON, ARRAY, UniqueConstraint
+    Column, String, Integer, Boolean, DateTime, Text,
+    DECIMAL, ForeignKey, JSON, ARRAY, UniqueConstraint, Index, Float
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
@@ -232,3 +232,96 @@ class ProbabilityCalculation(Base):
     # Relationships
     profile = relationship("UserProfile", back_populates="calculations")
     college = relationship("College", back_populates="calculations")
+
+
+class ScorecardCollege(Base):
+    """
+    College reference data sourced from U.S. College Scorecard.
+    This is separate from the legacy College table and keyed by the official Scorecard ID.
+    """
+
+    __tablename__ = "scorecard_colleges"
+
+    scorecard_id = Column(Integer, primary_key=True, autoincrement=False)
+
+    # Identifiers
+    opeid = Column(String(20))
+    opeid6 = Column(String(20))
+
+    # Basic information
+    name = Column(String(255), nullable=False)
+    city = Column(String(100))
+    state = Column(String(10))
+    zip = Column(String(20))
+    region_id = Column(Integer)
+    school_url = Column(String(512))
+    ownership = Column(String(50))  # public / private nonprofit / for-profit
+    predominant_degree = Column(Integer)
+    locale = Column(Integer)
+
+    # Size
+    student_size = Column(Integer)
+
+    # Admissions
+    admission_rate = Column(Float)  # latest.admissions.admission_rate.overall
+    sat_avg = Column(Float)  # latest.admissions.sat_scores.average.overall
+    sat_math = Column(Float)
+    sat_ebrw = Column(Float)
+    act_mid = Column(Float)  # latest.admissions.act_scores.midpoint.cumulative
+
+    # Costs
+    cost_attendance = Column(Integer)  # latest.cost.attendance.academic_year
+    tuition_in_state = Column(Integer)
+    tuition_out_of_state = Column(Integer)
+    net_price = Column(Integer)  # latest.cost.net_price.overall
+
+    # Outcomes
+    completion_rate = Column(Float)  # latest.completion.rate_suppressed.overall
+    earnings_10yr = Column(Integer)  # latest.earnings.10_yrs_after_entry.median
+    repayment_3yr = Column(Float)  # latest.repayment.3_yr_repayment.overall
+
+    # Derived buckets to speed up filtering
+    selectivity_bucket = Column(String(20))  # very_selective | selective | moderate | open | unknown
+    size_bucket = Column(String(20))  # small | medium | large | unknown
+    cost_bucket = Column(String(20))  # low | medium | high | unknown
+
+    # Metadata
+    data_year = Column(Integer)  # latest data year fetched
+    last_synced_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # Relationships
+    image = relationship("CollegeImage", back_populates="college", uselist=False)
+
+    __table_args__ = (
+        Index("ix_scorecard_state", "state"),
+        Index("ix_scorecard_selectivity", "selectivity_bucket"),
+        Index("ix_scorecard_net_price", "net_price"),
+        Index("ix_scorecard_size", "student_size"),
+    )
+
+
+class CollegeImage(Base):
+    """
+    Cached image metadata per college (Google Places, etc.).
+    One row per scorecard_college to avoid repeated external API calls.
+    """
+
+    __tablename__ = "college_images"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    college_id = Column(Integer, ForeignKey("scorecard_colleges.scorecard_id"), unique=True, nullable=False)
+
+    provider = Column(String(50), default="google_places")
+    place_id = Column(String(255))
+    photo_reference = Column(String(512))
+    image_url = Column(String(1024))
+    has_image = Column(Boolean, default=False)
+
+    last_fetched_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # Relationships
+    college = relationship("ScorecardCollege", back_populates="image")

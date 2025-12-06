@@ -2,8 +2,13 @@ export type HeaderMap = Record<string, string>;
 
 // PRIMARY: Railway backend URL (production)
 // FALLBACK: localhost for local development only
-const RAILWAY_API_URL = process.env.NEXT_PUBLIC_RAILWAY_API_URL?.trim() || "https://chancifybackendnonpostrges.up.railway.app";
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_DEFAULT_API_URL?.trim() || "http://localhost:8000";
+const RAILWAY_API_URL =
+  process.env.NEXT_PUBLIC_RAILWAY_API_URL?.trim() ||
+  "https://chancifybackendnonpostrges.up.railway.app";
+const DEFAULT_API_URL =
+  process.env.NEXT_PUBLIC_DEFAULT_API_URL?.trim() || "http://localhost:8000";
+const ALLOW_RUNTIME_OVERRIDE =
+  process.env.NEXT_PUBLIC_ALLOW_RUNTIME_OVERRIDE !== "false";
 
 declare global {
   interface Window {
@@ -64,7 +69,10 @@ export function getApiBaseUrl(): string {
   // 2. Environment variable (NEXT_PUBLIC_API_URL) - SET THIS IN RAILWAY!
   // 3. Railway URL (production)
   // 4. Localhost (local development only)
-  const runtime = sanitizeBaseUrl(resolveRuntimeOverride());
+  const runtime =
+    ALLOW_RUNTIME_OVERRIDE && typeof window !== "undefined"
+      ? sanitizeBaseUrl(resolveRuntimeOverride())
+      : undefined;
   const env = sanitizeBaseUrl(resolveEnvApiUrl());
   const primary = sanitizeBaseUrl(RAILWAY_API_URL);
   const fallback = sanitizeBaseUrl(DEFAULT_API_URL);

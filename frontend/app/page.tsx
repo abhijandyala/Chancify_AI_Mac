@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Script from 'next/script'
+import Spline from '@splinetool/react-spline/next'
 import ROXNav from '@/components/layout/ROXNav'
 import ROXHero from '@/components/ui/ROXHero'
 import ROXClientMarquee from '@/components/ui/ROXClientMarquee'
@@ -29,28 +29,17 @@ const SPLINE_SCENE = 'https://prod.spline.design/DdK2yhoCZ5ObcJ8o/scene.splineco
 
 function SplineBackground() {
   return (
-    <>
-      <Script
-        src="https://unpkg.com/@splinetool/viewer@1.12.6/build/spline-viewer.js"
-        type="module"
-        strategy="lazyOnload"
-        crossOrigin="anonymous"
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" style={{ minHeight: '100vh' }}>
+      <Spline
+        scene={SPLINE_SCENE}
+        className="h-full w-full"
+        style={{
+          minHeight: '100vh',
+          opacity: 0.9,
+          filter: 'saturate(1) brightness(1.02)',
+        }}
       />
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" style={{ minHeight: '100vh' }}>
-        <div suppressHydrationWarning>
-          <spline-viewer
-            url={SPLINE_SCENE}
-            style={{
-              width: '100%',
-              height: '100%',
-              minHeight: '100vh',
-              opacity: 0.95,
-              filter: 'saturate(1.05) brightness(1.05)',
-            }}
-          />
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
 
